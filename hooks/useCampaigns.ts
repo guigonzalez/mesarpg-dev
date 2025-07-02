@@ -39,8 +39,6 @@ export function useCampaigns(): CampaignsState & CampaignsActions {
     setState(prev => ({ ...prev, loading: true, error: null }))
 
     try {
-      console.log('Buscando campanhas para usuário:', user.id)
-      
       // Buscar campanhas onde o usuário é mestre
       const { data: masterCampaigns, error: masterError } = await supabase
         .from('campaigns')
@@ -84,39 +82,21 @@ export function useCampaigns(): CampaignsState & CampaignsActions {
       const allCampaigns = [...(masterCampaigns || [])]
       
       if (playerCampaigns) {
-        playerCampaigns.forEach((pc, index) => {
-          console.log(`🎮 PlayerCampaign ${index}:`, {
-            campaign_id: pc.campaign_id,
-            campaigns: pc.campaigns,
-            campaigns_status: pc.campaigns ? (pc.campaigns as any).status : 'NO_CAMPAIGNS'
-          })
-          
+        playerCampaigns.forEach((pc) => {
           if (pc.campaigns) {
             const campaignStatus = (pc.campaigns as any).status
-            console.log(`🎮 Campaign status check: ${campaignStatus} === 'active' = ${campaignStatus === 'active'}`)
             
             if (campaignStatus === 'active') {
               // Adicionar flag para indicar que é jogador
               const campaign = { ...(pc.campaigns as any), isPlayer: true }
-              console.log('🎮 Adding player campaign:', campaign.name)
               allCampaigns.push(campaign)
-            } else {
-              console.log('🎮 Campaign not active, skipping:', campaignStatus)
             }
-          } else {
-            console.log('🎮 No campaigns data in playerCampaign')
           }
         })
       }
 
       // Ordenar por data de criação
       allCampaigns.sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime())
-
-      console.log('Campanhas encontradas (mestre):', masterCampaigns?.length || 0)
-      console.log('Campanhas encontradas (jogador):', playerCampaigns?.length || 0)
-      console.log('Campanhas de jogador processadas:', playerCampaigns?.filter(pc => pc.campaigns && (pc.campaigns as any).status === 'active').length || 0)
-      console.log('Total de campanhas combinadas:', allCampaigns.length)
-      console.log('Campanhas finais:', allCampaigns.map(c => ({ id: c.id, name: c.name, isPlayer: c.isPlayer || false })))
 
       setState(prev => ({
         ...prev,

@@ -85,14 +85,6 @@ export default function DashboardPage() {
               {campaigns.map((campaign) => {
                 const isMaster = campaign.master_id === user.id
                 const isPlayer = (campaign as any).isPlayer === true
-                console.log('Dashboard - Campanha:', { 
-                  id: campaign.id, 
-                  name: campaign.name, 
-                  master_id: campaign.master_id, 
-                  user_id: user.id, 
-                  isMaster, 
-                  isPlayer 
-                })
                 return (
                   <Card
                     key={campaign.id}
