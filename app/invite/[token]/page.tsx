@@ -121,9 +121,20 @@ export default function InvitePageDebug({ params }: InvitePageProps) {
       await acceptInvite(params.token, password, name)
       addDebugInfo('Convite aceito com sucesso!')
       router.push('/dashboard')
-    } catch (err) {
-      addDebugInfo(`Erro ao aceitar convite: ${err}`)
+    } catch (err: any) {
+      // Log detalhado do erro
+      addDebugInfo(`Erro ao aceitar convite: ${JSON.stringify(err)}`)
+      addDebugInfo(`Erro message: ${err?.message || 'Sem mensagem'}`)
+      addDebugInfo(`Erro code: ${err?.code || 'Sem código'}`)
+      addDebugInfo(`Erro details: ${err?.details || 'Sem detalhes'}`)
       console.error('Accept invite error:', err)
+      console.error('Error details:', {
+        message: err?.message,
+        code: err?.code,
+        details: err?.details,
+        status: err?.status,
+        statusText: err?.statusText
+      })
     } finally {
       setIsLoading(false)
     }
