@@ -595,25 +595,53 @@ export default function CampaignSettingsPage() {
           {pendingInvites.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum convite pendente</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {pendingInvites.map((invite) => (
-                <div key={invite.id} className="flex items-center justify-between p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <div>
-                    <p className="font-medium">{invite.email}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Enviado em: {new Date(invite.created_at).toLocaleDateString('pt-BR')}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Expira em: {new Date(invite.expires_at).toLocaleDateString('pt-BR')}
+                <div key={invite.id} className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="font-medium">{invite.email}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Enviado em: {new Date(invite.created_at).toLocaleDateString('pt-BR')}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Expira em: {new Date(invite.expires_at).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCancelInvite(invite.id)}
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+                  
+                  {/* Link do Convite */}
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-orange-700">Link do Convite:</p>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={`${window.location.origin}/invite/${invite.token}`}
+                        readOnly
+                        className="flex-1 p-2 text-sm border rounded-md bg-white font-mono"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(`${window.location.origin}/invite/${invite.token}`)
+                          // Você pode adicionar um toast aqui
+                          console.log('Link copiado para a área de transferência!')
+                        }}
+                      >
+                        Copiar
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Envie este link para o jogador por email, WhatsApp ou outro meio de sua preferência.
                     </p>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleCancelInvite(invite.id)}
-                  >
-                    Cancelar
-                  </Button>
                 </div>
               ))}
             </div>
