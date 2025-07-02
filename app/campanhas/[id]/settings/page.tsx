@@ -598,7 +598,7 @@ export default function CampaignSettingsPage() {
           ) : (
             <div className="space-y-3">
               {pendingInvites.map((invite) => (
-                <div key={invite.id} className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div key={invite.id} className="p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/30 rounded-lg">
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <p className="font-medium">{invite.email}</p>
@@ -620,7 +620,7 @@ export default function CampaignSettingsPage() {
                   
                   {/* Link do Convite */}
                   <div className="space-y-2">
-                    <p className="text-sm font-medium text-orange-700">Link do Convite:</p>
+                    <p className="text-sm font-medium text-orange-700 dark:text-orange-300">Link do Convite:</p>
                     <div className="flex gap-2">
                       <input
                         type="text"
