@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useMesaStore } from "@/lib/store"
 import { Ghost, Map, Users, FileText, ScrollText, PanelLeftClose, PanelLeftOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -23,12 +23,24 @@ export function MasterSidebar() {
   const campaign = useMesaStore((state) => state.activeCampaign)
   const [isOpen, setIsOpen] = useState(true)
   const [activeView, setActiveView] = useState<PanelView>("players")
+  const [shouldRender, setShouldRender] = useState(false)
 
   console.log('🎮 MasterSidebar - Campaign do store:', campaign)
   console.log('🎮 MasterSidebar - Campaign existe?', !!campaign)
 
-  if (!campaign) {
-    console.log('🎮 MasterSidebar - Retornando null (sem campanha)')
+  // Aguardar o store ser atualizado
+  useEffect(() => {
+    if (campaign) {
+      console.log('🎮 MasterSidebar - Store atualizado, permitindo renderização')
+      setShouldRender(true)
+    } else {
+      console.log('🎮 MasterSidebar - Store ainda vazio, aguardando...')
+      setShouldRender(false)
+    }
+  }, [campaign])
+
+  if (!campaign || !shouldRender) {
+    console.log('🎮 MasterSidebar - Retornando null (sem campanha ou aguardando store)')
     return null
   }
 
