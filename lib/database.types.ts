@@ -57,6 +57,7 @@ export type Database = {
           master_id: string
           name: string
           sheet_template: Json
+          status: Database["public"]["Enums"]["campaign_status"]
           system: Database["public"]["Enums"]["campaign_system"]
           updated_at: string | null
         }
@@ -68,6 +69,7 @@ export type Database = {
           master_id: string
           name: string
           sheet_template?: Json
+          status?: Database["public"]["Enums"]["campaign_status"]
           system?: Database["public"]["Enums"]["campaign_system"]
           updated_at?: string | null
         }
@@ -79,6 +81,7 @@ export type Database = {
           master_id?: string
           name?: string
           sheet_template?: Json
+          status?: Database["public"]["Enums"]["campaign_status"]
           system?: Database["public"]["Enums"]["campaign_system"]
           updated_at?: string | null
         }
@@ -502,6 +505,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      campaign_status: "active" | "archived" | "deleted"
       campaign_system: "D&D 5e" | "Vampiro: A Máscara" | "Livre"
       field_type: "text" | "number" | "boolean" | "textarea" | "image"
       handout_type: "text" | "image" | "pdf"

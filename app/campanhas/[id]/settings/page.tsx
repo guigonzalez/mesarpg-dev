@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { Database } from '@/lib/database.types'
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, Settings, Users, ClipboardList } from "lucide-react"
+import { ArrowLeft, Settings, Users, ClipboardList, Trash2 } from "lucide-react"
 
 type Campaign = Database['public']['Tables']['campaigns']['Row']
 
@@ -24,6 +24,7 @@ export default function CampaignSettingsPage() {
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
 
   console.log('CampaignSettingsPage - Campaign ID:', campaignId)
   console.log('CampaignSettingsPage - User:', user?.id)
@@ -310,28 +311,42 @@ export default function CampaignSettingsPage() {
         </div>
 
         {/* Botões de Ação */}
-        <div className="flex gap-2">
-          {isEditing ? (
-            <>
-              <Button 
-                onClick={handleSave} 
-                disabled={isSaving}
-                className="flex items-center gap-2"
-              >
-                {isSaving && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>}
-                {isSaving ? 'Salvando...' : 'Salvar'}
+        <div className="flex justify-between items-center">
+          <div className="flex gap-2">
+            {isEditing ? (
+              <>
+                <Button 
+                  onClick={handleSave} 
+                  disabled={isSaving}
+                  className="flex items-center gap-2"
+                >
+                  {isSaving && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>}
+                  {isSaving ? 'Salvando...' : 'Salvar'}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={handleCancel}
+                  disabled={isSaving}
+                >
+                  Cancelar
+                </Button>
+              </>
+            ) : (
+              <Button onClick={() => setIsEditing(true)}>
+                Editar Configurações
               </Button>
-              <Button 
-                variant="outline" 
-                onClick={handleCancel}
-                disabled={isSaving}
-              >
-                Cancelar
-              </Button>
-            </>
-          ) : (
-            <Button onClick={() => setIsEditing(true)}>
-              Editar Configurações
+            )}
+          </div>
+          
+          {/* Botão de Deletar Campanha */}
+          {!isEditing && (
+            <Button 
+              variant="destructive" 
+              onClick={() => setShowDeleteModal(true)}
+              className="flex items-center gap-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              Deletar Campanha
             </Button>
           )}
         </div>
@@ -378,6 +393,122 @@ export default function CampaignSettingsPage() {
     </div>
   )
 
+  // Modal de confirmação para deletar campanha
+  const DeleteCampaignModal = () => {
+    const [confirmationText, setConfirmationText] = useState('')
+    const [isDeleting, setIsDeleting] = useState(false)
+    const [error, setError] = useState('')
+
+    const handleDelete = async () => {
+      console.log('🗑️ DeleteCampaignModal - Iniciando deleção da campanha')
+      
+      if (confirmationText !== campaign.name) {
+        setError('O nome da campanha não confere')
+        return
+      }
+
+      setIsDeleting(true)
+      setError('')
+
+      try {
+        const { error } = await supabase
+          .from('campaigns')
+          .update({ status: 'deleted' as Database['public']['Enums']['campaign_status'] })
+          .eq('id', campaign.id)
+          .eq('master_id', user?.id) // Política de segurança: só o mestre pode deletar
+
+        if (error) {
+          console.error('🗑️ DeleteCampaignModal - Erro ao deletar:', error)
+          throw error
+        }
+
+        console.log('🗑️ DeleteCampaignModal - Campanha deletada com sucesso')
+        
+        // Redirecionar para o dashboard
+        router.push('/dashboard')
+
+      } catch (err) {
+        console.error('🗑️ DeleteCampaignModal - Erro:', err)
+        setError(err instanceof Error ? err.message : 'Erro ao deletar campanha')
+      } finally {
+        setIsDeleting(false)
+      }
+    }
+
+    const handleClose = () => {
+      setConfirmationText('')
+      setError('')
+      setShowDeleteModal(false)
+    }
+
+    if (!showDeleteModal) return null
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-background p-6 rounded-lg max-w-md w-full mx-4 border">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-destructive/10 rounded-full">
+                <Trash2 className="h-5 w-5 text-destructive" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">Deletar Campanha</h3>
+                <p className="text-sm text-muted-foreground">Esta ação não pode ser desfeita</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-sm">
+                Você está prestes a deletar a campanha <strong>"{campaign.name}"</strong>.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                A campanha será marcada como deletada e não aparecerá mais no seu dashboard, 
+                mas os dados serão preservados no banco de dados.
+              </p>
+              <p className="text-sm font-medium">
+                Para confirmar, digite o nome da campanha abaixo:
+              </p>
+              
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  value={confirmationText}
+                  onChange={(e) => setConfirmationText(e.target.value)}
+                  placeholder={campaign.name}
+                  className="w-full p-2 border rounded-md"
+                  disabled={isDeleting}
+                />
+                {error && (
+                  <p className="text-destructive text-sm">{error}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={handleClose}
+                disabled={isDeleting}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDelete}
+                disabled={isDeleting || confirmationText !== campaign.name}
+                className="flex-1 flex items-center gap-2"
+              >
+                {isDeleting && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>}
+                {isDeleting ? 'Deletando...' : 'Deletar Campanha'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-screen w-full flex-col bg-background">
       <header className="flex items-center justify-between p-4 border-b shrink-0">
@@ -417,6 +548,9 @@ export default function CampaignSettingsPage() {
           </TabsContent>
         </Tabs>
       </main>
+      
+      {/* Modal de Confirmação */}
+      <DeleteCampaignModal />
     </div>
   )
 }
