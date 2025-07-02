@@ -178,6 +178,11 @@ export default function CampaignPage() {
   }
 
   const isMaster = user?.id === campaign.master_id
+  
+  console.log('🎮 RENDERIZAÇÃO DA INTERFACE:')
+  console.log('  isMaster na renderização:', isMaster)
+  console.log('  Vai mostrar sidebar do mestre?', isMaster)
+  console.log('  Vai mostrar botão de settings?', isMaster)
 
   return (
     <div className="flex h-screen w-full flex-col bg-muted/40">
