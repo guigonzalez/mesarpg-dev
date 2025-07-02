@@ -98,7 +98,9 @@ export function useCampaigns(): CampaignsState & CampaignsActions {
 
       console.log('Campanhas encontradas (mestre):', masterCampaigns?.length || 0)
       console.log('Campanhas encontradas (jogador):', playerCampaigns?.length || 0)
-      console.log('Total de campanhas:', allCampaigns.length)
+      console.log('Campanhas de jogador processadas:', playerCampaigns?.filter(pc => pc.campaigns && (pc.campaigns as any).status === 'active').length || 0)
+      console.log('Total de campanhas combinadas:', allCampaigns.length)
+      console.log('Campanhas finais:', allCampaigns.map(c => ({ id: c.id, name: c.name, isPlayer: c.isPlayer || false })))
 
       setState(prev => ({
         ...prev,
