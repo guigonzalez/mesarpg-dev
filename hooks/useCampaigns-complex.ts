@@ -5,7 +5,16 @@ import { createClientComponentClient } from '@/lib/supabase-browser'
 import { Database } from '@/lib/database.types'
 import { useAuth } from './useAuth'
 
-type Campaign = Database['public']['Tables']['campaigns']['Row']
+type Campaign = Database['public']['Tables']['campaigns']['Row'] & {
+  campaign_players?: {
+    user_id: string
+    status: string
+    users: {
+      name: string
+      email: string
+    }
+  }[]
+}
 
 interface CampaignsState {
   campaigns: Campaign[]
@@ -29,7 +38,7 @@ export function useCampaigns(): CampaignsState & CampaignsActions {
   const { user } = useAuth()
   const supabase = createClientComponentClient()
 
-  // Buscar campanhas do usuário (versão simplificada)
+  // Buscar campanhas do usuário
   const fetchCampaigns = useCallback(async () => {
     if (!user) {
       setState(prev => ({ ...prev, campaigns: [], loading: false }))
@@ -39,30 +48,60 @@ export function useCampaigns(): CampaignsState & CampaignsActions {
     setState(prev => ({ ...prev, loading: true, error: null }))
 
     try {
-      console.log('Buscando campanhas para usuário:', user.id)
-      
-      // Buscar apenas campanhas onde o usuário é mestre (query simples)
-      const { data: campaigns, error } = await supabase
+      // Buscar campanhas onde o usuário é mestre
+      const { data: masterCampaigns, error: masterError } = await supabase
         .from('campaigns')
-        .select('*')
+        .select(`
+          *,
+          campaign_players (
+            user_id,
+            status,
+            users (
+              name,
+              email
+            )
+          )
+        `)
         .eq('master_id', user.id)
-        .order('created_at', { ascending: false })
 
-      if (error) {
-        console.error('Erro ao buscar campanhas:', error)
-        throw error
-      }
+      if (masterError) throw masterError
 
-      console.log('Campanhas encontradas:', campaigns)
+      // Buscar campanhas onde o usuário é jogador
+      const { data: playerCampaigns, error: playerError } = await supabase
+        .from('campaigns')
+        .select(`
+          *,
+          campaign_players!inner (
+            user_id,
+            status,
+            users (
+              name,
+              email
+            )
+          )
+        `)
+        .eq('campaign_players.user_id', user.id)
+        .eq('campaign_players.status', 'active')
+
+      if (playerError) throw playerError
+
+      // Combinar e remover duplicatas
+      const allCampaigns = [
+        ...(masterCampaigns || []),
+        ...(playerCampaigns || [])
+      ]
+
+      const uniqueCampaigns = allCampaigns.filter((campaign, index, self) =>
+        index === self.findIndex(c => c.id === campaign.id)
+      )
 
       setState(prev => ({
         ...prev,
-        campaigns: campaigns || [],
+        campaigns: uniqueCampaigns,
         loading: false
       }))
 
     } catch (error) {
-      console.error('Erro no fetchCampaigns:', error)
       const message = error instanceof Error ? error.message : 'Erro ao carregar campanhas'
       setState(prev => ({
         ...prev,
@@ -111,7 +150,7 @@ export function useCampaigns(): CampaignsState & CampaignsActions {
       // Atualizar lista local
       setState(prev => ({
         ...prev,
-        campaigns: [data, ...prev.campaigns],
+        campaigns: [...prev.campaigns, data],
         loading: false
       }))
 
