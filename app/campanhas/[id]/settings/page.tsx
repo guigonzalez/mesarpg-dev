@@ -13,8 +13,6 @@ import { ArrowLeft, Settings, Users, ClipboardList, Trash2 } from "lucide-react"
 type Campaign = Database['public']['Tables']['campaigns']['Row']
 
 export default function CampaignSettingsPage() {
-  console.log('CampaignSettingsPage - Componente iniciado (REFATORADO)')
-  
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const params = useParams()
@@ -26,28 +24,19 @@ export default function CampaignSettingsPage() {
   const [error, setError] = useState<string | null>(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
 
-  console.log('CampaignSettingsPage - Campaign ID:', campaignId)
-  console.log('CampaignSettingsPage - User:', user?.id)
-
   useEffect(() => {
-    if (authLoading) {
-      console.log('CampaignSettingsPage - Aguardando autenticação...')
-      return
-    }
+    if (authLoading) return
 
     if (!user) {
-      console.log('CampaignSettingsPage - Usuário não autenticado, redirecionando para login')
       router.replace("/login")
       return
     }
     
     if (!campaignId) {
-      console.log('CampaignSettingsPage - ID da campanha não encontrado, redirecionando para dashboard')
       router.replace("/dashboard")
       return
     }
 
-    console.log('CampaignSettingsPage - Iniciando busca da campanha')
     fetchCampaignData()
   }, [user, router, campaignId, authLoading])
 
@@ -56,16 +45,12 @@ export default function CampaignSettingsPage() {
       setLoading(true)
       setError(null)
 
-      console.log('CampaignSettingsPage - Buscando campanha:', campaignId)
-
       // Buscar dados da campanha
       const { data: campaignData, error: campaignError } = await supabase
         .from('campaigns')
         .select('*')
         .eq('id', campaignId)
         .single()
-
-      console.log('CampaignSettingsPage - Resultado da busca:', { campaignData, campaignError })
 
       if (campaignError) {
         if (campaignError.code === 'PGRST116') {
@@ -77,19 +62,16 @@ export default function CampaignSettingsPage() {
 
       // Verificar se o usuário é o mestre da campanha
       const isMaster = campaignData.master_id === user?.id
-      console.log('CampaignSettingsPage - É mestre?', isMaster)
 
       if (!isMaster) {
-        console.log('CampaignSettingsPage - Usuário não é mestre, redirecionando para campanha')
         router.replace(`/campanhas/${campaignId}`)
         return
       }
 
-      console.log('CampaignSettingsPage - Acesso permitido, definindo campanha')
       setCampaign(campaignData)
 
     } catch (err) {
-      console.error('CampaignSettingsPage - Erro ao carregar campanha:', err)
+      console.error('Erro ao carregar campanha:', err)
       setError('Erro ao carregar dados da campanha')
     } finally {
       setLoading(false)
@@ -124,8 +106,6 @@ export default function CampaignSettingsPage() {
     return null
   }
 
-  console.log('CampaignSettingsPage - Renderizando página de configurações')
-
   // Componente funcional para configurações gerais
   const CampaignSettingsForm = () => {
     const [isEditing, setIsEditing] = useState(false)
@@ -136,10 +116,6 @@ export default function CampaignSettingsPage() {
       description: campaign.description || ''
     })
     const [errors, setErrors] = useState<{[key: string]: string}>({})
-
-    console.log('🎮 CampaignSettingsForm - Iniciado')
-    console.log('🎮 CampaignSettingsForm - Campaign:', campaign.name)
-    console.log('🎮 CampaignSettingsForm - Form data:', formData)
 
     const validateForm = () => {
       const newErrors: {[key: string]: string} = {}
@@ -362,8 +338,6 @@ export default function CampaignSettingsPage() {
     const [inviting, setInviting] = useState(false)
     const [error, setError] = useState('')
 
-    console.log('🎮 PlayerManagement - Iniciado')
-
     // Buscar jogadores e convites pendentes
     useEffect(() => {
       fetchPlayersAndInvites()
@@ -372,7 +346,6 @@ export default function CampaignSettingsPage() {
     const fetchPlayersAndInvites = async () => {
       try {
         setLoading(true)
-        console.log('🎮 PlayerManagement - Buscando jogadores e convites')
 
         // Buscar jogadores atuais
         const { data: playersData, error: playersError } = await supabase
@@ -389,13 +362,11 @@ export default function CampaignSettingsPage() {
           .eq('status', 'active')
 
         if (playersError) {
-          console.error('Erro ao buscar jogadores:', playersError)
           throw playersError
         }
 
         // Buscar emails dos jogadores atuais para filtrar convites já aceitos
         const playerEmails = playersData?.map(p => p.users?.email).filter(Boolean) || []
-        console.log('🎮 PlayerManagement - Emails dos jogadores atuais:', playerEmails)
 
         // Buscar convites pendentes (não expirados e email não está na campanha)
         const { data: allInvitesData, error: invitesError } = await supabase
@@ -406,7 +377,6 @@ export default function CampaignSettingsPage() {
           .order('created_at', { ascending: false })
 
         if (invitesError) {
-          console.error('Erro ao buscar convites:', invitesError)
           throw invitesError
         }
 
@@ -415,22 +385,11 @@ export default function CampaignSettingsPage() {
           !playerEmails.includes(invite.email)
         ) || []
 
-        console.log('🎮 PlayerManagement - Todos os convites:', allInvitesData?.length || 0)
-        console.log('🎮 PlayerManagement - Convites filtrados (pendentes):', invitesData.length)
-
-        if (invitesError) {
-          console.error('Erro ao buscar convites:', invitesError)
-          throw invitesError
-        }
-
-        console.log('🎮 PlayerManagement - Jogadores:', playersData)
-        console.log('🎮 PlayerManagement - Convites:', invitesData)
-
         setPlayers(playersData || [])
         setPendingInvites(invitesData || [])
 
       } catch (err) {
-        console.error('🎮 PlayerManagement - Erro:', err)
+        console.error('Erro ao carregar dados:', err)
         setError(err instanceof Error ? err.message : 'Erro ao carregar dados')
       } finally {
         setLoading(false)
