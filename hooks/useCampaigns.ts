@@ -29,7 +29,7 @@ export function useCampaigns(): CampaignsState & CampaignsActions {
   const { user } = useAuth()
   const supabase = createClientComponentClient()
 
-  // Buscar campanhas do usuário (versão simplificada)
+  // Buscar campanhas do usuário (como mestre e como jogador)
   const fetchCampaigns = useCallback(async () => {
     if (!user) {
       setState(prev => ({ ...prev, campaigns: [], loading: false }))
@@ -41,24 +41,68 @@ export function useCampaigns(): CampaignsState & CampaignsActions {
     try {
       console.log('Buscando campanhas para usuário:', user.id)
       
-      // Buscar apenas campanhas ativas onde o usuário é mestre
-      const { data: campaigns, error } = await supabase
+      // Buscar campanhas onde o usuário é mestre
+      const { data: masterCampaigns, error: masterError } = await supabase
         .from('campaigns')
         .select('*')
         .eq('master_id', user.id)
         .eq('status', 'active')
         .order('created_at', { ascending: false })
 
-      if (error) {
-        console.error('Erro ao buscar campanhas:', error)
-        throw error
+      if (masterError) {
+        console.error('Erro ao buscar campanhas como mestre:', masterError)
+        throw masterError
       }
 
-      console.log('Campanhas encontradas:', campaigns)
+      // Buscar campanhas onde o usuário é jogador
+      const { data: playerCampaigns, error: playerError } = await supabase
+        .from('campaign_players')
+        .select(`
+          campaign_id,
+          campaigns (
+            id,
+            name,
+            description,
+            system,
+            master_id,
+            status,
+            created_at,
+            updated_at,
+            active_map_id,
+            sheet_template
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+
+      if (playerError) {
+        console.error('Erro ao buscar campanhas como jogador:', playerError)
+        // Não falhar aqui, apenas logar o erro
+      }
+
+      // Combinar campanhas (mestre + jogador)
+      const allCampaigns = [...(masterCampaigns || [])]
+      
+      if (playerCampaigns) {
+        playerCampaigns.forEach(pc => {
+          if (pc.campaigns && (pc.campaigns as any).status === 'active') {
+            // Adicionar flag para indicar que é jogador
+            const campaign = { ...(pc.campaigns as any), isPlayer: true }
+            allCampaigns.push(campaign)
+          }
+        })
+      }
+
+      // Ordenar por data de criação
+      allCampaigns.sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime())
+
+      console.log('Campanhas encontradas (mestre):', masterCampaigns?.length || 0)
+      console.log('Campanhas encontradas (jogador):', playerCampaigns?.length || 0)
+      console.log('Total de campanhas:', allCampaigns.length)
 
       setState(prev => ({
         ...prev,
-        campaigns: campaigns || [],
+        campaigns: allCampaigns,
         loading: false
       }))
 

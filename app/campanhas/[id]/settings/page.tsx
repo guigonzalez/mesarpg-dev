@@ -386,13 +386,14 @@ export default function CampaignSettingsPage() {
             )
           `)
           .eq('campaign_id', campaign.id)
+          .eq('status', 'active')
 
         if (playersError) {
           console.error('Erro ao buscar jogadores:', playersError)
           throw playersError
         }
 
-        // Buscar convites pendentes
+        // Buscar convites pendentes (não usados e não expirados)
         const { data: invitesData, error: invitesError } = await supabase
           .from('invites')
           .select('*')
