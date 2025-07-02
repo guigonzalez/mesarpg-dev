@@ -20,13 +20,28 @@
 - [x] AuthProvider para contexto global
 - [x] Separação de clientes browser/server
 
-### 📋 **FASE 3: FEATURES** - **PENDENTE**
-- [ ] CRUD completo de campanhas
-- [ ] Sistema de convites
-- [ ] Gestão de permissões
-- [ ] Chat em tempo real
+### ✅ **FASE 2.5: ESTABILIZAÇÃO** - **COMPLETA**
+- [x] Dashboard funcionando com campanhas
+- [x] Correção de recursão infinita RLS
+- [x] Hook useCampaigns simplificado e funcional
+- [x] Deploy funcionando no Vercel
+- [x] Limpeza de arquivos de debug
+- [x] Sistema base estável
 
-### 🎯 **FASE 4: OTIMIZAÇÕES** - **PENDENTE**
+### 🎯 **FASE 3: PÁGINAS DE CAMPANHA** - **EM ANDAMENTO**
+- [ ] Página individual da campanha (/campanhas/[id])
+- [ ] Sistema de convites integrado na página
+- [ ] Lista de jogadores da campanha
+- [ ] Configurações da campanha (só mestre)
+- [ ] Interface para gerenciar jogadores
+
+### 📋 **FASE 4: FEATURES AVANÇADAS** - **PENDENTE**
+- [ ] Sistema de fichas de personagem
+- [ ] Chat em tempo real
+- [ ] Dados virtuais
+- [ ] Mapas e tokens
+
+### 🎯 **FASE 5: OTIMIZAÇÕES** - **PENDENTE**
 - [ ] Performance e cache
 - [ ] Melhorias de UX/UI
 - [ ] Monitoramento
@@ -35,101 +50,124 @@
 
 ## 🏗️ Arquitetura Atual
 
-### **Infraestrutura Configurada**
+### **URLs do Sistema**
 ```
-GitHub: https://github.com/guigonzalez/mesarpg-dev
-├── main (produção)
-└── develop (desenvolvimento)
+Produção: https://mesarpg.vercel.app
+├── /login          ✅ Funcionando
+├── /dashboard      ✅ Funcionando
+├── /campanhas/[id] 🔄 Em desenvolvimento
+└── /invite/[token] ✅ Funcionando
 
+GitHub: https://github.com/guigonzalez/mesarpg-dev
 Supabase: https://qxdzialcrytriofhoknp.supabase.co
-├── Database Schema ✅
-├── Row Level Security ✅
-├── Real-time enabled ✅
-└── TypeScript types ✅
 ```
 
 ### **Estrutura do Banco de Dados**
 ```sql
--- Tabelas principais
-users              -- Usuários (extends auth.users)
-campaigns           -- Campanhas de RPG
-campaign_players    -- Relação many-to-many
-maps               -- Mapas das campanhas
-tokens             -- Tokens dos personagens
-npcs               -- NPCs das campanhas
-chat_messages      -- Mensagens do chat
-handouts           -- Documentos compartilhados
-markers            -- Marcadores nos mapas
-drawing_lines      -- Linhas desenhadas
-fog_of_war         -- Névoa de guerra
+-- Tabelas principais funcionando
+users              ✅ Usuários (extends auth.users)
+campaigns          ✅ Campanhas de RPG (RLS corrigido)
+campaign_players   ✅ Relação many-to-many
+invites           ✅ Sistema de convites
+
+-- Tabelas para implementar
+maps               🔄 Mapas das campanhas
+tokens             🔄 Tokens dos personagens
+npcs               🔄 NPCs das campanhas
+chat_messages      🔄 Mensagens do chat
+handouts           🔄 Documentos compartilhados
+markers            🔄 Marcadores nos mapas
+drawing_lines      🔄 Linhas desenhadas
+fog_of_war         🔄 Névoa de guerra
 ```
 
 ### **Segurança (RLS)**
-- ✅ Políticas de segurança configuradas
+- ✅ Políticas de segurança configuradas e funcionando
+- ✅ Recursão infinita corrigida
 - ✅ Usuários só acessam suas campanhas
 - ✅ Mestres têm controle total
-- ✅ Jogadores têm acesso limitado
-
-### **Real-time**
-- ✅ Chat em tempo real
-- ✅ Movimentação de tokens
-- ✅ Marcadores e desenhos
-- ✅ Névoa de guerra
+- ✅ Sistema estável
 
 ---
 
 ## 🔧 Configuração Técnica
 
-### **Dependências Adicionadas**
-```json
-{
-  "@supabase/supabase-js": "2.50.2",
-  "@supabase/ssr": "0.6.1"
-}
+### **Sistema Funcionando**
+```typescript
+// Hooks implementados e funcionando
+useAuth()          ✅ Estado de autenticação
+useCampaigns()     ✅ Listar campanhas do usuário
+
+// Componentes funcionando
+AuthProvider       ✅ Contexto global de auth
+Dashboard          ✅ Lista de campanhas
+CreateCampaign     ✅ Modal para criar campanhas
 ```
 
-### **Arquivos Criados**
-- `lib/supabase.ts` - Cliente Supabase com SSR
-- `lib/database.types.ts` - Tipos TypeScript
-- `supabase/schema.sql` - Schema do banco
-- `.env.example` - Template de variáveis
-- `.env.local` - Configuração local
-
-### **Variáveis de Ambiente**
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://qxdzialcrytriofhoknp.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
+### **Deploy e Infraestrutura**
+- ✅ Vercel configurado e funcionando
+- ✅ Variáveis de ambiente configuradas
+- ✅ Build automático do GitHub
+- ✅ SSL e domínio funcionando
 
 ---
 
-## 🚀 Próximos Passos
+## 🚀 Próximos Passos Imediatos
 
-### **1. Aplicar Schema no Supabase**
-```sql
--- Execute o arquivo supabase/schema.sql no SQL Editor do Supabase
--- Isso criará todas as tabelas, políticas e triggers
-```
-
-### **2. Configurar Vercel (Deploy)**
-- Conectar repositório GitHub à Vercel
-- Configurar variáveis de ambiente
-- Deploy automático das branches
-
-### **3. Migrar Autenticação**
-- Substituir login mocado por Supabase Auth
-- Implementar middleware de autenticação
-- Atualizar componentes de login
-
-### **4. Criar Hooks Customizados**
+### **1. Página Individual da Campanha**
 ```typescript
-// Exemplos de hooks a serem criados
-useCampaigns()     // Listar campanhas do usuário
-useCampaign(id)    // Dados de uma campanha específica
-useAuth()          // Estado de autenticação
-useRealtime()      // Conexões em tempo real
+// Estrutura a ser criada
+/campanhas/[id]/
+├── page.tsx              // Visão geral da campanha
+├── settings/page.tsx     // Configurações (só mestre)
+├── players/page.tsx      // Gerenciar jogadores
+└── components/
+    ├── CampaignHeader.tsx
+    ├── PlayersList.tsx
+    ├── InvitePlayerModal.tsx
+    └── CampaignTabs.tsx
 ```
+
+### **2. Sistema de Convites Integrado**
+- Modal "Convidar Jogador" na página da campanha
+- Lista de convites pendentes
+- Status dos jogadores (ativo, pendente, inativo)
+- Notificações de novos jogadores
+
+### **3. Funcionalidades da Página**
+- Header da campanha (nome, sistema, descrição)
+- Lista de jogadores ativos
+- Botões de ação para o mestre
+- Navegação entre seções
+
+---
+
+## 🎯 Problemas Resolvidos Recentemente
+
+### **Recursão Infinita RLS (02/07/2025)**
+```sql
+-- Problema: infinite recursion detected in policy
+-- Solução: Políticas RLS simplificadas
+CREATE POLICY "campaigns_select_policy" ON campaigns
+FOR SELECT TO authenticated
+USING (master_id = auth.uid());
+```
+
+### **Hook de Campanhas Simplificado**
+```typescript
+// Problema: Queries complexas com JOINs causavam erro 500
+// Solução: Hook simplificado focado apenas no essencial
+const { data: campaigns } = await supabase
+  .from('campaigns')
+  .select('*')
+  .eq('master_id', user.id)
+```
+
+### **Limpeza de Arquivos**
+- ✅ Removidos todos os arquivos *-debug
+- ✅ Removidos arquivos *-simple, *-complex
+- ✅ Removidos SQLs temporários
+- ✅ Código base limpo e organizado
 
 ---
 
@@ -137,73 +175,50 @@ useRealtime()      // Conexões em tempo real
 
 ### **Desenvolvimento**
 ```bash
-# Instalar dependências
-pnpm install
-
-# Executar em desenvolvimento
+# Executar localmente
 pnpm dev
 
 # Build para produção
 pnpm build
+
+# Deploy manual (automático via GitHub)
+vercel --prod
 ```
 
 ### **Git Workflow**
 ```bash
-# Criar nova feature
-git checkout develop
-git checkout -b feature/nova-funcionalidade
+# Status atual
+git status
 
-# Fazer commit
+# Commit das mudanças
 git add .
-git commit -m "feat: descrição da funcionalidade"
-
-# Push e PR
-git push origin feature/nova-funcionalidade
-# Abrir PR para develop no GitHub
-```
-
-### **Supabase**
-```bash
-# Instalar CLI (se necessário)
-npm install -g supabase
-
-# Login no Supabase
-supabase login
-
-# Gerar tipos TypeScript (futuro)
-supabase gen types typescript --project-id qxdzialcrytriofhoknp
+git commit -m "feat: descrição"
+git push origin develop
 ```
 
 ---
 
-## 🎯 Metas Imediatas
+## 🎯 Metas da Próxima Semana
 
-### **Esta Semana**
-1. ✅ Configurar infraestrutura completa
-2. ✅ Aplicar schema no Supabase
-3. ✅ Configurar deploy na Vercel
-4. ✅ Migrar sistema de autenticação
+### **Prioridade Alta**
+1. 🎯 Criar página individual da campanha
+2. 🎯 Implementar sistema de convites na página
+3. 🎯 Lista e gerenciamento de jogadores
+4. 🎯 Configurações da campanha
 
-### **Próxima Semana**
-1. Implementar hooks customizados
-2. Migrar store Zustand para Supabase
-3. Implementar chat em tempo real
-4. Testes de integração
-
-### **Mês Atual**
-1. Funcionalidades completas
-2. Testes de usuário
-3. Otimizações de performance
-4. Deploy em produção
+### **Prioridade Média**
+1. Sistema de fichas básico
+2. Melhorias na interface
+3. Testes de usabilidade
 
 ---
 
 ## 📞 Informações de Contato
 
+- **Aplicação**: https://mesarpg.vercel.app
 - **GitHub**: https://github.com/guigonzalez/mesarpg-dev
 - **Supabase**: https://supabase.com/dashboard/project/qxdzialcrytriofhoknp
-- **Vercel**: (a ser configurado)
 
 ---
 
-**Última atualização**: 02/07/2025 - Fase 2 completa ✅
+**Última atualização**: 02/07/2025 - Sistema base estável, iniciando páginas de campanha ✅
