@@ -46,6 +46,7 @@ export default function CampaignPage() {
   const [tokens, setTokens] = useState<any[]>([])
   const [markers, setMarkers] = useState<any[]>([])
   const [fogOfWar, setFogOfWar] = useState<{ x: number; y: number }[]>([])
+  const [npcs, setNpcs] = useState<any[]>([])
 
   useEffect(() => {
     // Aguardar o loading da autenticação terminar
@@ -318,6 +319,13 @@ export default function CampaignPage() {
         
         {/* Sidebar de Ações (direita) */}
         <ActionSidebar
+          campaign={campaign}
+          user={{
+            id: user!.id,
+            name: user!.user_metadata?.name || user!.email || 'Usuário',
+            email: user!.email || '',
+            tokenImage: user!.user_metadata?.avatar_url
+          }}
           isMaster={isMaster}
           activeTool={activeTool}
           onToolChange={setActiveTool}
@@ -327,6 +335,8 @@ export default function CampaignPage() {
           drawColor={drawColor}
           onDrawColorChange={setDrawColor}
           onClearDrawing={handleClearDrawing}
+          tokens={tokens}
+          npcs={npcs}
         />
       </div>
     </div>

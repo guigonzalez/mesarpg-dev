@@ -2,7 +2,6 @@
 
 import React from "react"
 import { useState } from "react"
-import { useMesaStore } from "@/lib/store"
 import {
   MousePointer,
   Ruler,
@@ -23,8 +22,31 @@ import type { GridTool } from "./grid"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
-import { Chat } from "./chat"
-import { PlayerHandoutPanel } from "./player-handout-panel" // Importar novo componente
+import { Database } from '@/lib/database.types'
+
+type Campaign = Database['public']['Tables']['campaigns']['Row']
+type User = {
+  id: string
+  name: string
+  email: string
+  tokenImage?: string
+}
+
+type Token = {
+  id: string
+  ownerId: string
+  type: 'player' | 'npc'
+  name: string
+  image: string
+  position: { x: number; y: number }
+}
+
+type Npc = {
+  id: string
+  name: string
+  tokenImage?: string
+  avatarUrl?: string
+}
 
 // --- Painéis de Conteúdo ---
 
@@ -82,15 +104,18 @@ const DrawToolPanel = ({
   </div>
 )
 
-const NpcListPanel = () => {
-  const campaign = useMesaStore((state) => state.activeCampaign)
+const SimpleNpcListPanel = ({ npcs }: { npcs: Npc[] }) => {
+  console.log('🎮 ActionSidebar - SimpleNpcListPanel:', npcs.length, 'NPCs')
+  
   const handleDragStart = (e: any, npcId: string) => e.dataTransfer.setData("npcId", npcId)
-  if (!campaign || !campaign.npcs || campaign.npcs.length === 0) {
+  
+  if (!npcs || npcs.length === 0) {
     return <p className="text-sm text-muted-foreground p-4 text-center">Nenhum NPC criado.</p>
   }
+  
   return (
     <div className="space-y-2 p-2">
-      {campaign.npcs.map((npc) => (
+      {npcs.map((npc) => (
         <div
           key={npc.id}
           draggable
@@ -108,15 +133,26 @@ const NpcListPanel = () => {
   )
 }
 
-const PlayerTokenPanel = () => {
-  const campaign = useMesaStore((state) => state.activeCampaign)
-  const user = useMesaStore((state) => state.currentUser)
-  if (!campaign || !user || user.id === campaign.masterId) return null
-  const playerTokenOnGrid = campaign.tokens.find((token) => token.ownerId === user.id)
+const SimplePlayerTokenPanel = ({ 
+  user, 
+  tokens, 
+  isMaster 
+}: { 
+  user: User
+  tokens: Token[]
+  isMaster: boolean 
+}) => {
+  console.log('🎮 ActionSidebar - SimplePlayerTokenPanel:', user.name, 'isMaster:', isMaster)
+  
+  if (isMaster) return null
+  
+  const playerTokenOnGrid = tokens.find((token) => token.ownerId === user.id)
   if (playerTokenOnGrid) {
     return <p className="text-sm text-muted-foreground p-4 text-center">Seu token já está no mapa.</p>
   }
+  
   const handleDragStart = (e: any) => e.dataTransfer.setData("userId", user.id)
+  
   return (
     <div className="p-2">
       <div
@@ -134,11 +170,25 @@ const PlayerTokenPanel = () => {
   )
 }
 
+const SimpleChatPanel = () => (
+  <div className="p-4 text-center">
+    <p className="text-sm text-muted-foreground">Chat em desenvolvimento</p>
+  </div>
+)
+
+const SimpleHandoutPanel = () => (
+  <div className="p-4 text-center">
+    <p className="text-sm text-muted-foreground">Utilitários em desenvolvimento</p>
+  </div>
+)
+
 // --- Componente Principal ---
 
-type PanelView = "chat" | "mark" | "draw" | "npcs" | "player" | "handouts" // Adicionar handouts
+type PanelView = "chat" | "mark" | "draw" | "npcs" | "player" | "handouts"
 
 interface ActionSidebarProps {
+  campaign: Campaign
+  user: User
   isMaster: boolean
   activeTool: GridTool
   onToolChange: (tool: GridTool) => void
@@ -148,11 +198,29 @@ interface ActionSidebarProps {
   drawColor: string
   onDrawColorChange: (color: string) => void
   onClearDrawing: () => void
+  // Data props
+  tokens: Token[]
+  npcs: Npc[]
 }
 
-export function ActionSidebar({ isMaster, onToolChange, ...props }: ActionSidebarProps) {
+export function ActionSidebar({ 
+  campaign,
+  user,
+  isMaster, 
+  onToolChange, 
+  tokens,
+  npcs,
+  ...props 
+}: ActionSidebarProps) {
+  console.log('🎮 ActionSidebar - Componente iniciado (REFATORADO)')
+  console.log('🎮 ActionSidebar - Campaign:', campaign?.name)
+  console.log('🎮 ActionSidebar - User:', user?.name)
+  console.log('🎮 ActionSidebar - Is Master:', isMaster)
+  console.log('🎮 ActionSidebar - Tokens count:', tokens.length)
+  console.log('🎮 ActionSidebar - NPCs count:', npcs.length)
+  
   const [isOpen, setIsOpen] = useState(true)
-  const [activeView, setActiveView] = useState<PanelView>("chat")
+  const [activeView, setActiveView] = useState<PanelView | null>("chat")
 
   const handleViewChange = (tool: GridTool, view: PanelView | null) => {
     onToolChange(tool)
@@ -171,12 +239,12 @@ export function ActionSidebar({ isMaster, onToolChange, ...props }: ActionSideba
   }
 
   const views: { [key in PanelView]: { title: string; component: any } } = {
-    chat: { title: "Chat da Sessão", component: Chat },
+    chat: { title: "Chat da Sessão", component: SimpleChatPanel },
     mark: { title: "Marcadores", component: () => <MarkToolPanel {...props} /> },
     draw: { title: "Desenho Livre", component: () => <DrawToolPanel {...props} /> },
-    npcs: { title: "Criaturas", component: NpcListPanel },
-    player: { title: "Seu Personagem", component: PlayerTokenPanel },
-    handouts: { title: "Utilitários", component: PlayerHandoutPanel }, // Adicionar view
+    npcs: { title: "Criaturas", component: () => <SimpleNpcListPanel npcs={npcs} /> },
+    player: { title: "Seu Personagem", component: () => <SimplePlayerTokenPanel user={user} tokens={tokens} isMaster={isMaster} /> },
+    handouts: { title: "Utilitários", component: SimpleHandoutPanel },
   }
 
   const ActiveComponent = activeView ? views[activeView].component : null
