@@ -1,44 +1,50 @@
-'use client'
+"use client"
 
-import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useEffect, useState } from "react"
+import { useRouter, useParams } from "next/navigation"
+import Link from "next/link"
 import { createClientComponentClient } from '@/lib/supabase-browser'
 import { useAuth } from '@/hooks/useAuth'
 import { Database } from '@/lib/database.types'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Users, Settings, Plus, Mail, Crown, User } from 'lucide-react'
+import { Grid, type GridTool } from "@/components/rpg/grid"
+import { ArrowLeft, Settings } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { MasterSidebar } from "@/components/rpg/master-sidebar"
+import { ActionSidebar } from "@/components/rpg/action-sidebar"
+import type { DrawnLine } from "@/lib/types"
 
 type Campaign = Database['public']['Tables']['campaigns']['Row']
-type CampaignPlayer = Database['public']['Tables']['campaign_players']['Row'] & {
-  users: {
-    name: string | null
-    email: string
-  } | null
-}
 
 export default function CampaignPage() {
-  const params = useParams()
-  const router = useRouter()
   const { user } = useAuth()
+  const router = useRouter()
+  const params = useParams()
+  const campaignId = params.id as string
+  const supabase = createClientComponentClient()
+
   const [campaign, setCampaign] = useState<Campaign | null>(null)
-  const [players, setPlayers] = useState<CampaignPlayer[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  
-  const supabase = createClientComponentClient()
-  const campaignId = params.id as string
 
-  // Verificar se o usuário é o mestre da campanha
-  const isMaster = campaign?.master_id === user?.id
+  // Estados do grid (mockados por enquanto)
+  const [activeTool, setActiveTool] = useState<GridTool>("move")
+  const [markerColor, setMarkerColor] = useState("#ef4444")
+  const [drawColor, setDrawColor] = useState("#ef4444")
+  const [lines, setLines] = useState<DrawnLine[]>([])
 
   useEffect(() => {
-    if (!user || !campaignId) return
+    if (!user) {
+      router.replace("/login")
+      return
+    }
+    
+    if (!campaignId) {
+      router.replace("/dashboard")
+      return
+    }
 
     fetchCampaignData()
-  }, [user, campaignId])
+  }, [user, router, campaignId])
 
   const fetchCampaignData = async () => {
     try {
@@ -78,25 +84,6 @@ export default function CampaignPage() {
 
       setCampaign(campaignData)
 
-      // Buscar jogadores da campanha
-      const { data: playersData, error: playersError } = await supabase
-        .from('campaign_players')
-        .select(`
-          *,
-          users (
-            name,
-            email
-          )
-        `)
-        .eq('campaign_id', campaignId)
-        .eq('status', 'active')
-
-      if (playersError) {
-        console.error('Erro ao buscar jogadores:', playersError)
-      } else {
-        setPlayers(playersData || [])
-      }
-
     } catch (err) {
       console.error('Erro ao carregar campanha:', err)
       setError('Erro ao carregar dados da campanha')
@@ -105,23 +92,24 @@ export default function CampaignPage() {
     }
   }
 
-  const handleInvitePlayer = () => {
-    // TODO: Implementar modal de convite
-    console.log('Convidar jogador')
+  const handleSetLines = (newLines: DrawnLine[]) => {
+    setLines(newLines)
+    // TODO: Salvar no Supabase
   }
 
-  const handleSettings = () => {
-    router.push(`/campanhas/${campaignId}/settings`)
+  const handleClearDrawing = () => handleSetLines([])
+
+  const clearMarkers = () => {
+    // TODO: Implementar limpeza de marcadores
+    console.log('Limpar marcadores')
   }
 
   if (loading) {
     return (
-      <div className="container mx-auto py-8">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Carregando campanha...</p>
-          </div>
+      <div className="flex h-screen w-full items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Carregando campanha...</p>
         </div>
       </div>
     )
@@ -129,14 +117,12 @@ export default function CampaignPage() {
 
   if (error) {
     return (
-      <div className="container mx-auto py-8">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <p className="text-red-500 mb-4">{error}</p>
-            <Button onClick={() => router.push('/dashboard')} variant="outline">
-              Voltar ao Dashboard
-            </Button>
-          </div>
+      <div className="flex h-screen w-full items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-500 mb-4">{error}</p>
+          <Button onClick={() => router.push('/dashboard')} variant="outline">
+            Voltar ao Dashboard
+          </Button>
         </div>
       </div>
     )
@@ -146,192 +132,61 @@ export default function CampaignPage() {
     return null
   }
 
+  const isMaster = user?.id === campaign.master_id
+
   return (
-    <div className="container mx-auto py-8">
+    <div className="flex h-screen w-full flex-col bg-muted/40">
       {/* Header da Campanha */}
-      <div className="mb-8">
-        <div className="flex items-start justify-between mb-4">
+      <header className="flex items-center justify-between p-2 border-b bg-background shrink-0 z-20">
+        <div className="flex items-center gap-2">
+          <Link href="/dashboard">
+            <Button variant="outline" size="icon" aria-label="Voltar ao Dashboard">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
           <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">
-              {campaign.name}
-            </h1>
-            <div className="flex items-center gap-2 mb-2">
-              <Badge variant="secondary">{campaign.system}</Badge>
-              {isMaster && (
-                <Badge variant="outline" className="text-orange-600 border-orange-600">
-                  <Crown className="w-3 h-3 mr-1" />
-                  Mestre
-                </Badge>
-              )}
-            </div>
-            {campaign.description && (
-              <p className="text-muted-foreground max-w-2xl">
-                {campaign.description}
-              </p>
-            )}
+            <h1 className="text-lg font-bold">{campaign.name}</h1>
+            <p className="text-xs text-muted-foreground">{campaign.system}</p>
           </div>
-          
-          {isMaster && (
-            <div className="flex gap-2">
-              <Button onClick={handleInvitePlayer} className="bg-orange-600 hover:bg-orange-700">
-                <Plus className="w-4 h-4 mr-2" />
-                Convidar Jogador
-              </Button>
-              <Button onClick={handleSettings} variant="outline">
-                <Settings className="w-4 h-4 mr-2" />
-                Configurações
-              </Button>
-            </div>
-          )}
         </div>
-      </div>
+        {isMaster && (
+          <Link href={`/campanhas/${campaignId}/settings`}>
+            <Button variant="outline" size="icon" aria-label="Configurações da Campanha">
+              <Settings className="h-4 w-4" />
+            </Button>
+          </Link>
+        )}
+      </header>
 
       {/* Conteúdo Principal */}
-      <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="overview">Visão Geral</TabsTrigger>
-          <TabsTrigger value="players">
-            <Users className="w-4 h-4 mr-2" />
-            Jogadores ({players.length})
-          </TabsTrigger>
-          <TabsTrigger value="characters">Personagens</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Card de Informações */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Informações</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div>
-                  <span className="text-sm text-muted-foreground">Sistema:</span>
-                  <p className="font-medium">{campaign.system}</p>
-                </div>
-                <div>
-                  <span className="text-sm text-muted-foreground">Criada em:</span>
-                  <p className="font-medium">
-                    {campaign.created_at ? new Date(campaign.created_at).toLocaleDateString('pt-BR') : 'Data não disponível'}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-sm text-muted-foreground">Jogadores:</span>
-                  <p className="font-medium">{players.length}</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Card de Atividade Recente */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Atividade Recente</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Nenhuma atividade recente
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Card de Ações Rápidas */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Ações Rápidas</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {isMaster && (
-                  <>
-                    <Button 
-                      onClick={handleInvitePlayer} 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-full justify-start"
-                    >
-                      <Mail className="w-4 h-4 mr-2" />
-                      Convidar Jogador
-                    </Button>
-                    <Button 
-                      onClick={handleSettings} 
-                      variant="outline" 
-                      size="sm" 
-                      className="w-full justify-start"
-                    >
-                      <Settings className="w-4 h-4 mr-2" />
-                      Configurações
-                    </Button>
-                  </>
-                )}
-                <Button variant="outline" size="sm" className="w-full justify-start">
-                  <User className="w-4 h-4 mr-2" />
-                  Meu Personagem
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="players" className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Jogadores da Campanha</h2>
-            {isMaster && (
-              <Button onClick={handleInvitePlayer} className="bg-orange-600 hover:bg-orange-700">
-                <Plus className="w-4 h-4 mr-2" />
-                Convidar Jogador
-              </Button>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {players.map((player) => (
-              <Card key={player.id}>
-                <CardContent className="p-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
-                      <User className="w-5 h-5 text-orange-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium">
-                        {player.users?.name || 'Usuário'}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {player.users?.email}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-
-            {players.length === 0 && (
-              <div className="col-span-full text-center py-8">
-                <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground mb-4">
-                  Nenhum jogador na campanha ainda
-                </p>
-                {isMaster && (
-                  <Button onClick={handleInvitePlayer} className="bg-orange-600 hover:bg-orange-700">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Convidar Primeiro Jogador
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="characters" className="space-y-6">
-          <div className="text-center py-8">
-            <User className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground mb-4">
-              Sistema de personagens em desenvolvimento
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Em breve você poderá criar e gerenciar fichas de personagem
-            </p>
-          </div>
-        </TabsContent>
-      </Tabs>
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar do Mestre (esquerda) */}
+        {isMaster && <MasterSidebar />}
+        
+        {/* Grid Principal */}
+        <main className="relative flex-1 overflow-hidden h-full flex flex-col">
+          <Grid
+            activeTool={activeTool}
+            markerColor={markerColor}
+            drawColor={drawColor}
+            lines={lines}
+            setLines={handleSetLines}
+          />
+        </main>
+        
+        {/* Sidebar de Ações (direita) */}
+        <ActionSidebar
+          isMaster={isMaster}
+          activeTool={activeTool}
+          onToolChange={setActiveTool}
+          markerColor={markerColor}
+          onMarkerColorChange={setMarkerColor}
+          onClearMarkers={clearMarkers}
+          drawColor={drawColor}
+          onDrawColorChange={setDrawColor}
+          onClearDrawing={handleClearDrawing}
+        />
+      </div>
     </div>
   )
 }
