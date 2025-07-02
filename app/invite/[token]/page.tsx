@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useAuthContext } from "@/components/auth/AuthProvider"
 import { Swords, Eye, EyeOff, UserPlus } from "lucide-react"
-import { createClient } from '@supabase/supabase-js'
+import { createClientComponentClient } from '@/lib/supabase-browser'
 
 interface InvitePageProps {
   params: {
@@ -29,10 +29,7 @@ export default function InvitePage({ params }: InvitePageProps) {
   const router = useRouter()
   
   // Create Supabase client for checking invite
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const supabase = createClientComponentClient()
 
   // Verificar se o convite é válido ao carregar a página
   useEffect(() => {
