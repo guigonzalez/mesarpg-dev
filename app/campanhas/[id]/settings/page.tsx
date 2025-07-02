@@ -508,22 +508,42 @@ export default function CampaignSettingsPage() {
     const handleCancelInvite = async (inviteId: string) => {
       try {
         console.log('🎮 PlayerManagement - Cancelando convite:', inviteId)
+        setError('') // Limpar erros anteriores
 
-        const { error } = await supabase
+        // Verificar se o convite existe antes de deletar
+        const { data: existingInvite, error: checkError } = await supabase
+          .from('invites')
+          .select('id, email')
+          .eq('id', inviteId)
+          .single()
+
+        if (checkError) {
+          console.error('🎮 PlayerManagement - Erro ao verificar convite:', checkError)
+          throw new Error('Convite não encontrado')
+        }
+
+        console.log('🎮 PlayerManagement - Convite encontrado:', existingInvite.email)
+
+        // Deletar o convite
+        const { error: deleteError } = await supabase
           .from('invites')
           .delete()
           .eq('id', inviteId)
 
-        if (error) {
-          console.error('🎮 PlayerManagement - Erro ao cancelar convite:', error)
-          throw error
+        if (deleteError) {
+          console.error('🎮 PlayerManagement - Erro ao deletar convite:', deleteError)
+          throw deleteError
         }
 
-        console.log('🎮 PlayerManagement - Convite cancelado com sucesso')
-        await fetchPlayersAndInvites() // Atualizar lista
+        console.log('🎮 PlayerManagement - Convite deletado com sucesso do banco de dados')
+        
+        // Atualizar lista imediatamente
+        await fetchPlayersAndInvites()
+        
+        console.log('🎮 PlayerManagement - Lista atualizada após cancelamento')
 
       } catch (err) {
-        console.error('🎮 PlayerManagement - Erro:', err)
+        console.error('🎮 PlayerManagement - Erro no cancelamento:', err)
         setError(err instanceof Error ? err.message : 'Erro ao cancelar convite')
       }
     }
