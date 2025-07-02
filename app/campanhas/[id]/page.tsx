@@ -35,11 +35,17 @@ export default function CampaignPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Estados do grid (mockados por enquanto)
+  // Estados do grid (refatorados)
   const [activeTool, setActiveTool] = useState<GridTool>("move")
   const [markerColor, setMarkerColor] = useState("#ef4444")
   const [drawColor, setDrawColor] = useState("#ef4444")
   const [lines, setLines] = useState<DrawnLine[]>([])
+
+  // Estados dos dados do grid (placeholders por enquanto)
+  const [currentMap, setCurrentMap] = useState<any>(null)
+  const [tokens, setTokens] = useState<any[]>([])
+  const [markers, setMarkers] = useState<any[]>([])
+  const [fogOfWar, setFogOfWar] = useState<{ x: number; y: number }[]>([])
 
   useEffect(() => {
     // Aguardar o loading da autenticação terminar
@@ -147,6 +153,7 @@ export default function CampaignPage() {
     }
   }
 
+  // Handlers para o Grid
   const handleSetLines = (newLines: DrawnLine[]) => {
     setLines(newLines)
     // TODO: Salvar no Supabase
@@ -155,8 +162,65 @@ export default function CampaignPage() {
   const handleClearDrawing = () => handleSetLines([])
 
   const clearMarkers = () => {
-    // TODO: Implementar limpeza de marcadores
+    setMarkers([])
+    // TODO: Implementar limpeza de marcadores no Supabase
     console.log('Limpar marcadores')
+  }
+
+  // Grid action handlers (placeholders por enquanto)
+  const handleTokenMove = (tokenId: string, newPosition: { x: number; y: number }) => {
+    console.log('🎮 Page - Token move:', tokenId, newPosition)
+    setTokens(prev => prev.map(token => 
+      token.id === tokenId ? { ...token, position: newPosition } : token
+    ))
+    // TODO: Salvar no Supabase
+  }
+
+  const handleTokenAdd = (tokenData: any) => {
+    console.log('🎮 Page - Token add:', tokenData)
+    const newToken = { ...tokenData, id: `token-${Date.now()}` }
+    setTokens(prev => [...prev, newToken])
+    // TODO: Salvar no Supabase
+  }
+
+  const handleMarkerAdd = (markerData: any) => {
+    console.log('🎮 Page - Marker add:', markerData)
+    const newMarker = { ...markerData, id: `marker-${Date.now()}` }
+    setMarkers(prev => [...prev, newMarker])
+    // TODO: Salvar no Supabase
+  }
+
+  const handleMarkerRemove = (position: { x: number; y: number }) => {
+    console.log('🎮 Page - Marker remove:', position)
+    setMarkers(prev => prev.filter(m => 
+      m.position.x !== position.x || m.position.y !== position.y
+    ))
+    // TODO: Remover do Supabase
+  }
+
+  const handleFogOfWarUpdate = (cells: { x: number; y: number }[], mode: 'add' | 'reveal') => {
+    console.log('🎮 Page - Fog of war update:', cells, mode)
+    if (mode === 'add') {
+      setFogOfWar(prev => {
+        const newCells = cells.filter(cell => 
+          !prev.some(fog => fog.x === cell.x && fog.y === cell.y)
+        )
+        return [...prev, ...newCells]
+      })
+    } else {
+      setFogOfWar(prev => prev.filter(fog => 
+        !cells.some(cell => cell.x === fog.x && cell.y === fog.y)
+      ))
+    }
+    // TODO: Salvar no Supabase
+  }
+
+  const handleTokensRemove = (cells: { x: number; y: number }[]) => {
+    console.log('🎮 Page - Tokens remove:', cells)
+    setTokens(prev => prev.filter(token => 
+      !cells.some(cell => cell.x === token.position.x && cell.y === token.position.y)
+    ))
+    // TODO: Remover do Supabase
   }
 
   if (loading) {
@@ -226,11 +290,29 @@ export default function CampaignPage() {
         {/* Grid Principal */}
         <main className="relative flex-1 overflow-hidden h-full flex flex-col">
           <Grid
+            campaign={campaign}
+            user={{
+              id: user!.id,
+              name: user!.user_metadata?.name || user!.email || 'Usuário',
+              email: user!.email || '',
+              tokenImage: user!.user_metadata?.avatar_url
+            }}
+            isMaster={isMaster}
             activeTool={activeTool}
             markerColor={markerColor}
             drawColor={drawColor}
             lines={lines}
             setLines={handleSetLines}
+            currentMap={currentMap}
+            tokens={tokens}
+            markers={markers}
+            fogOfWar={fogOfWar}
+            onTokenMove={handleTokenMove}
+            onTokenAdd={handleTokenAdd}
+            onMarkerAdd={handleMarkerAdd}
+            onMarkerRemove={handleMarkerRemove}
+            onFogOfWarUpdate={handleFogOfWarUpdate}
+            onTokensRemove={handleTokensRemove}
           />
         </main>
         
