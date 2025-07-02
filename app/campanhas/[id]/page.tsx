@@ -18,7 +18,7 @@ type Campaign = Database['public']['Tables']['campaigns']['Row']
 export default function CampaignPage() {
   console.log('CampaignPage - Componente iniciado')
   
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const params = useParams()
   const campaignId = params.id as string
@@ -27,6 +27,7 @@ export default function CampaignPage() {
   console.log('CampaignPage - Params:', params)
   console.log('CampaignPage - Campaign ID:', campaignId)
   console.log('CampaignPage - User:', user?.id)
+  console.log('CampaignPage - Auth Loading:', authLoading)
 
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [loading, setLoading] = useState(true)
@@ -39,18 +40,27 @@ export default function CampaignPage() {
   const [lines, setLines] = useState<DrawnLine[]>([])
 
   useEffect(() => {
+    // Aguardar o loading da autenticação terminar
+    if (authLoading) {
+      console.log('CampaignPage - Aguardando autenticação...')
+      return
+    }
+
     if (!user) {
+      console.log('CampaignPage - Usuário não autenticado, redirecionando para login')
       router.replace("/login")
       return
     }
     
     if (!campaignId) {
+      console.log('CampaignPage - ID da campanha não encontrado, redirecionando para dashboard')
       router.replace("/dashboard")
       return
     }
 
+    console.log('CampaignPage - Iniciando busca da campanha')
     fetchCampaignData()
-  }, [user, router, campaignId])
+  }, [user, router, campaignId, authLoading])
 
   const fetchCampaignData = async () => {
     try {
