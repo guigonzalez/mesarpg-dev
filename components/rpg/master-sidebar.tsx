@@ -1,62 +1,93 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
-import { useMesaStore } from "@/lib/store"
+import { useState } from "react"
 import { Ghost, Map, Users, FileText, ScrollText, PanelLeftClose, PanelLeftOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { MapManagement } from "@/components/master-view/map-management"
-import { SheetViewer } from "@/components/master-view/sheet-viewer"
-import { NpcManagement } from "@/components/master-view/npc-management"
-import { HandoutManagement } from "@/components/master-view/handout-management"
-import { PlayerList } from "./player-list"
+import { Database } from '@/lib/database.types'
 
+type Campaign = Database['public']['Tables']['campaigns']['Row']
 type PanelView = "players" | "maps" | "npcs" | "handouts" | "sheets"
 
-export function MasterSidebar() {
-  console.log('🎮 MasterSidebar - Componente iniciado')
+interface MasterSidebarProps {
+  campaign: Campaign
+}
+
+export function MasterSidebar({ campaign }: MasterSidebarProps) {
+  console.log('🎮 MasterSidebar - Componente iniciado (REFATORADO)')
+  console.log('🎮 MasterSidebar - Campaign recebida via props:', campaign)
   
-  const campaign = useMesaStore((state) => state.activeCampaign)
   const [isOpen, setIsOpen] = useState(true)
   const [activeView, setActiveView] = useState<PanelView>("players")
-  const [shouldRender, setShouldRender] = useState(false)
 
-  console.log('🎮 MasterSidebar - Campaign do store:', campaign)
-  console.log('🎮 MasterSidebar - Campaign existe?', !!campaign)
-
-  // Aguardar o store ser atualizado
-  useEffect(() => {
-    if (campaign) {
-      console.log('🎮 MasterSidebar - Store atualizado, permitindo renderização')
-      setShouldRender(true)
-    } else {
-      console.log('🎮 MasterSidebar - Store ainda vazio, aguardando...')
-      setShouldRender(false)
-    }
-  }, [campaign])
-
-  if (!campaign || !shouldRender) {
-    console.log('🎮 MasterSidebar - Retornando null (sem campanha ou aguardando store)')
+  if (!campaign) {
+    console.log('🎮 MasterSidebar - Sem campanha, retornando null')
     return null
   }
 
-  console.log('🎮 MasterSidebar - Renderizando sidebar')
+  console.log('🎮 MasterSidebar - Renderizando sidebar (REFATORADO)')
 
   const handleViewChange = (view: PanelView) => {
     setActiveView(view)
     setIsOpen(true)
   }
 
+  // Componentes simples para substituir os complexos do MVP
+  const SimplePlayerList = () => (
+    <div className="space-y-2">
+      <p className="text-sm text-muted-foreground">Lista de jogadores conectados aparecerá aqui</p>
+      <div className="p-2 border rounded">
+        <p className="font-medium">Funcionalidade em desenvolvimento</p>
+      </div>
+    </div>
+  )
+
+  const SimpleMapManagement = () => (
+    <div className="space-y-2">
+      <p className="text-sm text-muted-foreground">Gerenciamento de mapas aparecerá aqui</p>
+      <div className="p-2 border rounded">
+        <p className="font-medium">Funcionalidade em desenvolvimento</p>
+      </div>
+    </div>
+  )
+
+  const SimpleNpcManagement = () => (
+    <div className="space-y-2">
+      <p className="text-sm text-muted-foreground">Gerenciamento de NPCs aparecerá aqui</p>
+      <div className="p-2 border rounded">
+        <p className="font-medium">Funcionalidade em desenvolvimento</p>
+      </div>
+    </div>
+  )
+
+  const SimpleHandoutManagement = () => (
+    <div className="space-y-2">
+      <p className="text-sm text-muted-foreground">Utilitários e handouts aparecerão aqui</p>
+      <div className="p-2 border rounded">
+        <p className="font-medium">Funcionalidade em desenvolvimento</p>
+      </div>
+    </div>
+  )
+
+  const SimpleSheetViewer = () => (
+    <div className="space-y-2">
+      <p className="text-sm text-muted-foreground">Fichas dos jogadores aparecerão aqui</p>
+      <div className="p-2 border rounded">
+        <p className="font-medium">Funcionalidade em desenvolvimento</p>
+      </div>
+    </div>
+  )
+
   const views: { [key in PanelView]: { title: string; component: React.FC<any> } } = {
-    players: { title: "Jogadores na Mesa", component: PlayerList },
-    maps: { title: "Gerenciar Mapas", component: MapManagement },
-    npcs: { title: "Gerenciar NPCs", component: NpcManagement },
-    handouts: { title: "Gerenciar Utilitários", component: HandoutManagement },
-    sheets: { title: "Fichas dos Jogadores", component: SheetViewer },
+    players: { title: "Jogadores na Mesa", component: SimplePlayerList },
+    maps: { title: "Gerenciar Mapas", component: SimpleMapManagement },
+    npcs: { title: "Gerenciar NPCs", component: SimpleNpcManagement },
+    handouts: { title: "Gerenciar Utilitários", component: SimpleHandoutManagement },
+    sheets: { title: "Fichas dos Jogadores", component: SimpleSheetViewer },
   }
 
   const ActiveComponent = views[activeView].component

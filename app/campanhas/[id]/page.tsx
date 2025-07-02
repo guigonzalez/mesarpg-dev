@@ -221,7 +221,7 @@ export default function CampaignPage() {
       {/* Conteúdo Principal */}
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar do Mestre (esquerda) */}
-        {isMaster && <MasterSidebar />}
+        {isMaster && <MasterSidebar campaign={campaign} />}
         
         {/* Grid Principal */}
         <main className="relative flex-1 overflow-hidden h-full flex flex-col">
