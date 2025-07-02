@@ -129,11 +129,15 @@ export default function CampaignPage() {
       }
 
       console.log('Acesso permitido:', { isMaster, hasAccess })
-      setCampaign(campaignData)
       
-      // Definir campanha ativa no store para a MasterSidebar
+      // Definir campanha ativa no store ANTES de definir o estado local
       console.log('🏪 Definindo campanha ativa no store:', campaignData.id)
       setActiveCampaign(campaignData)
+      
+      // Aguardar um tick para garantir que o store seja atualizado
+      setTimeout(() => {
+        setCampaign(campaignData)
+      }, 0)
 
     } catch (err) {
       console.error('Erro ao carregar campanha:', err)
