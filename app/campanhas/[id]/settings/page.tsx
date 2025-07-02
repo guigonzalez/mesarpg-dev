@@ -9,6 +9,7 @@ import { Database } from '@/lib/database.types'
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowLeft, Settings, Users, ClipboardList, Trash2 } from "lucide-react"
+import { SheetTemplateEditor } from "@/components/master-view/sheet-template-editor"
 
 type Campaign = Database['public']['Tables']['campaigns']['Row']
 
@@ -661,300 +662,25 @@ export default function CampaignSettingsPage() {
     )
   }
 
-  const SheetTemplateEditor = () => {
-    const [template, setTemplate] = useState<SheetTemplate>(() => {
-      try {
-        const sheetTemplate = campaign.sheet_template as any
-        if (sheetTemplate && typeof sheetTemplate === 'object' && sheetTemplate.name && Array.isArray(sheetTemplate.fields)) {
-          return sheetTemplate as SheetTemplate
-        }
-      } catch (e) {
-        console.error('Erro ao parsear sheet_template:', e)
-      }
-      return { name: campaign.system, fields: [] }
-    })
-    const [isSaving, setIsSaving] = useState(false)
-    const [error, setError] = useState('')
-    const [newField, setNewField] = useState({ name: '', type: 'text' })
+  // Função para salvar o template
+  const handleSaveTemplate = async (template: any) => {
+    try {
+      const { error } = await supabase
+        .from('campaigns')
+        .update({ sheet_template: template })
+        .eq('id', campaign.id)
+        .eq('master_id', user?.id)
 
-    // Templates pré-configurados
-    const predefinedTemplates = {
-      'D&D 5e': {
-        name: 'D&D 5e',
-        fields: [
-          { name: 'Nome do Personagem', type: 'text' },
-          { name: 'Classe', type: 'text' },
-          { name: 'Nível', type: 'number' },
-          { name: 'Raça', type: 'text' },
-          { name: 'Antecedente', type: 'text' },
-          { name: 'Força', type: 'number' },
-          { name: 'Destreza', type: 'number' },
-          { name: 'Constituição', type: 'number' },
-          { name: 'Inteligência', type: 'number' },
-          { name: 'Sabedoria', type: 'number' },
-          { name: 'Carisma', type: 'number' },
-          { name: 'Pontos de Vida', type: 'number' },
-          { name: 'Classe de Armadura', type: 'number' },
-          { name: 'Velocidade', type: 'text' },
-          { name: 'Proficiências', type: 'textarea' },
-          { name: 'Equipamentos', type: 'textarea' },
-          { name: 'História', type: 'textarea' }
-        ]
-      },
-      'Vampiro: A Máscara': {
-        name: 'Vampiro: A Máscara',
-        fields: [
-          { name: 'Nome', type: 'text' },
-          { name: 'Clã', type: 'text' },
-          { name: 'Geração', type: 'number' },
-          { name: 'Seita', type: 'text' },
-          { name: 'Força', type: 'number' },
-          { name: 'Destreza', type: 'number' },
-          { name: 'Vigor', type: 'number' },
-          { name: 'Carisma', type: 'number' },
-          { name: 'Manipulação', type: 'number' },
-          { name: 'Aparência', type: 'number' },
-          { name: 'Percepção', type: 'number' },
-          { name: 'Inteligência', type: 'number' },
-          { name: 'Raciocínio', type: 'number' },
-          { name: 'Sangue', type: 'number' },
-          { name: 'Força de Vontade', type: 'number' },
-          { name: 'Humanidade', type: 'number' },
-          { name: 'Disciplinas', type: 'textarea' },
-          { name: 'História', type: 'textarea' }
-        ]
-      },
-      'Livre': {
-        name: 'Sistema Livre',
-        fields: [
-          { name: 'Nome do Personagem', type: 'text' },
-          { name: 'Conceito', type: 'text' },
-          { name: 'Atributo 1', type: 'number' },
-          { name: 'Atributo 2', type: 'number' },
-          { name: 'Atributo 3', type: 'number' },
-          { name: 'Habilidades', type: 'textarea' },
-          { name: 'Equipamentos', type: 'textarea' },
-          { name: 'História', type: 'textarea' }
-        ]
-      }
-    }
+      if (error) throw error
 
-    const loadPredefinedTemplate = (systemName: string) => {
-      const predefined = predefinedTemplates[systemName as keyof typeof predefinedTemplates]
-      if (predefined) {
-        setTemplate(predefined as SheetTemplate)
-      }
-    }
-
-    const addField = () => {
-      if (!newField.name.trim()) return
+      // Atualizar o estado local da campanha
+      setCampaign(prev => prev ? { ...prev, sheet_template: template } : null)
       
-      setTemplate(prev => ({
-        ...prev,
-        fields: [...prev.fields, { ...newField, name: newField.name.trim() } as SheetField]
-      }))
-      setNewField({ name: '', type: 'text' })
+      console.log('✅ Template salvo com sucesso!')
+    } catch (err) {
+      console.error('Erro ao salvar template:', err)
+      throw err
     }
-
-    const removeField = (index: number) => {
-      setTemplate(prev => ({
-        ...prev,
-        fields: prev.fields.filter((_, i) => i !== index)
-      }))
-    }
-
-    const moveField = (index: number, direction: 'up' | 'down') => {
-      const newFields = [...template.fields]
-      const targetIndex = direction === 'up' ? index - 1 : index + 1
-      
-      if (targetIndex >= 0 && targetIndex < newFields.length) {
-        [newFields[index], newFields[targetIndex]] = [newFields[targetIndex], newFields[index]]
-        setTemplate(prev => ({ ...prev, fields: newFields }))
-      }
-    }
-
-    const saveTemplate = async () => {
-      setIsSaving(true)
-      setError('')
-
-      try {
-        const { error } = await supabase
-          .from('campaigns')
-          .update({ sheet_template: template })
-          .eq('id', campaign.id)
-          .eq('master_id', user?.id)
-
-        if (error) throw error
-
-        // Atualizar o estado local da campanha
-        setCampaign(prev => prev ? { ...prev, sheet_template: template as any } : null)
-        
-      } catch (err) {
-        console.error('Erro ao salvar template:', err)
-        setError(err instanceof Error ? err.message : 'Erro ao salvar template')
-      } finally {
-        setIsSaving(false)
-      }
-    }
-
-    return (
-      <div className="space-y-6">
-        <div>
-          <h3 className="text-lg font-medium">Template da Ficha</h3>
-          <p className="text-sm text-muted-foreground">Configure os campos das fichas dos personagens</p>
-        </div>
-
-        {error && (
-          <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-            <p className="text-destructive text-sm">{error}</p>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Editor */}
-          <div className="space-y-4">
-            <div className="p-4 border rounded-lg">
-              <h4 className="font-medium mb-4">Seletor de Template</h4>
-              <div className="space-y-3">
-                <label className="text-sm font-medium">Carregar template pré-configurado:</label>
-                <div className="flex gap-2">
-                  {Object.keys(predefinedTemplates).map((systemName) => (
-                    <Button
-                      key={systemName}
-                      variant={template.name === systemName ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => loadPredefinedTemplate(systemName)}
-                    >
-                      {systemName}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 border rounded-lg">
-              <h4 className="font-medium mb-4">Adicionar Campo</h4>
-              <div className="space-y-3">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newField.name}
-                    onChange={(e) => setNewField(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="Nome do campo"
-                    className="flex-1 p-2 border rounded-md"
-                  />
-                  <select
-                    value={newField.type}
-                    onChange={(e) => setNewField(prev => ({ ...prev, type: e.target.value }))}
-                    className="p-2 border rounded-md"
-                  >
-                    <option value="text">Texto</option>
-                    <option value="number">Número</option>
-                    <option value="textarea">Texto Longo</option>
-                  </select>
-                  <Button onClick={addField} disabled={!newField.name.trim()}>
-                    Adicionar
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 border rounded-lg">
-              <h4 className="font-medium mb-4">Campos da Ficha ({template.fields.length})</h4>
-              {template.fields.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nenhum campo adicionado ainda</p>
-              ) : (
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {template.fields.map((field, index) => (
-                    <div key={index} className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
-                      <div className="flex-1">
-                        <span className="font-medium">{field.name}</span>
-                        <span className="text-sm text-muted-foreground ml-2">({field.type})</span>
-                      </div>
-                      <div className="flex gap-1">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => moveField(index, 'up')}
-                          disabled={index === 0}
-                        >
-                          ↑
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => moveField(index, 'down')}
-                          disabled={index === template.fields.length - 1}
-                        >
-                          ↓
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => removeField(index)}
-                        >
-                          ×
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <Button 
-              onClick={saveTemplate} 
-              disabled={isSaving}
-              className="w-full flex items-center gap-2"
-            >
-              {isSaving && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>}
-              {isSaving ? 'Salvando...' : 'Salvar Template'}
-            </Button>
-          </div>
-
-          {/* Preview */}
-          <div className="space-y-4">
-            <div className="p-4 border rounded-lg">
-              <h4 className="font-medium mb-4">Preview da Ficha</h4>
-              <div className="space-y-4 max-h-96 overflow-y-auto">
-                <div className="text-center p-4 bg-muted/30 rounded-lg">
-                  <h5 className="font-semibold text-lg">{template.name}</h5>
-                  <p className="text-sm text-muted-foreground">Ficha de Personagem</p>
-                </div>
-                
-                {template.fields.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">
-                    Adicione campos para ver o preview da ficha
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {template.fields.map((field, index) => (
-                      <div key={index} className="space-y-1">
-                        <label className="text-sm font-medium">{field.name}:</label>
-                        {field.type === 'textarea' ? (
-                          <textarea
-                            className="w-full p-2 border rounded-md h-20 resize-none"
-                            placeholder={`Digite ${field.name.toLowerCase()}...`}
-                            disabled
-                          />
-                        ) : (
-                          <input
-                            type={field.type}
-                            className="w-full p-2 border rounded-md"
-                            placeholder={field.type === 'number' ? '0' : `Digite ${field.name.toLowerCase()}...`}
-                            disabled
-                          />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
   }
 
   // Modal de confirmação para deletar campanha
@@ -1108,7 +834,10 @@ export default function CampaignSettingsPage() {
             <PlayerManagement />
           </TabsContent>
           <TabsContent value="sheet" className="mt-6">
-            <SheetTemplateEditor />
+            <SheetTemplateEditor 
+              campaign={campaign}
+              onSave={handleSaveTemplate}
+            />
           </TabsContent>
         </Tabs>
       </main>
