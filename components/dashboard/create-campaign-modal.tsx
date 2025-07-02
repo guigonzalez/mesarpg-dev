@@ -14,35 +14,56 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useMesaStore } from "@/lib/store"
-import type { Campaign } from "@/lib/types"
+import { useCampaigns } from "@/hooks/useCampaigns"
+import { Loader2 } from "lucide-react"
 
 interface CreateCampaignModalProps {
   isOpen: boolean
   onClose: () => void
+  onCampaignCreated?: () => void
 }
 
-export function CreateCampaignModal({ isOpen, onClose }: CreateCampaignModalProps) {
-  const addCampaign = useMesaStore((state) => state.addCampaign)
+export function CreateCampaignModal({ isOpen, onClose, onCampaignCreated }: CreateCampaignModalProps) {
+  const { createCampaign } = useCampaigns()
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
-  const [system, setSystem] = useState<Campaign["system"] | "">("")
+  const [system, setSystem] = useState("")
   const [error, setError] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!name || !system) {
       setError("O nome da campanha e o sistema são obrigatórios.")
       return
     }
 
-    addCampaign({ name, description, system })
-
-    // Resetar e fechar
+    setIsLoading(true)
     setError("")
-    setName("")
-    setDescription("")
-    setSystem("")
-    onClose()
+
+    try {
+      await createCampaign(name, description, system)
+      
+      // Resetar e fechar
+      setName("")
+      setDescription("")
+      setSystem("")
+      onClose()
+      onCampaignCreated?.()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao criar campanha')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleClose = () => {
+    if (!isLoading) {
+      setError("")
+      setName("")
+      setDescription("")
+      setSystem("")
+      onClose()
+    }
   }
 
   return (
@@ -81,7 +102,7 @@ export function CreateCampaignModal({ isOpen, onClose }: CreateCampaignModalProp
             <Label htmlFor="system" className="text-right">
               Sistema
             </Label>
-            <Select onValueChange={(v: Campaign["system"]) => setSystem(v)} value={system}>
+            <Select onValueChange={setSystem} value={system}>
               <SelectTrigger className="col-span-3">
                 <SelectValue placeholder="Selecione um sistema" />
               </SelectTrigger>
