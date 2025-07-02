@@ -16,7 +16,7 @@ interface InvitePageProps {
   }
 }
 
-export default function InvitePageDebug({ params }: InvitePageProps) {
+export default function InvitePage({ params }: InvitePageProps) {
   const [name, setName] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -24,7 +24,6 @@ export default function InvitePageDebug({ params }: InvitePageProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [inviteData, setInviteData] = useState<any>(null)
   const [inviteError, setInviteError] = useState("")
-  const [debugInfo, setDebugInfo] = useState<string[]>([])
   
   const { acceptInvite, error } = useAuthContext()
   const router = useRouter()
@@ -32,64 +31,25 @@ export default function InvitePageDebug({ params }: InvitePageProps) {
   // Create Supabase client for checking invite
   const supabase = createClientComponentClient()
 
-  const addDebugInfo = (info: string) => {
-    setDebugInfo(prev => [...prev, `${new Date().toLocaleTimeString()}: ${info}`])
-    console.log('DEBUG:', info)
-  }
-
   // Verificar se o convite é válido ao carregar a página
   useEffect(() => {
     const checkInvite = async () => {
-      addDebugInfo(`Verificando convite com token: ${params.token}`)
-      
       try {
-        // Primeiro, tentar buscar sem filtros para ver se o token existe
-        addDebugInfo('Buscando convite sem filtros...')
-        const { data: allInvites, error: allError } = await supabase
+        const { data, error } = await supabase
           .from('invites')
           .select('*')
           .eq('token', params.token)
+          .eq('used_at', null)
+          .gt('expires_at', new Date().toISOString())
+          .single()
 
-        addDebugInfo(`Resultado busca sem filtros: ${allInvites?.length || 0} convites encontrados`)
-        if (allError) {
-          addDebugInfo(`Erro na busca sem filtros: ${allError.message}`)
+        if (error || !data) {
+          setInviteError('Convite inválido ou expirado')
+          return
         }
 
-        if (allInvites && allInvites.length > 0) {
-          const invite = allInvites[0]
-          addDebugInfo(`Convite encontrado: email=${invite.email}, expires_at=${invite.expires_at}, used_at=${invite.used_at}`)
-          
-          // Verificar manualmente se está válido
-          const now = new Date()
-          const expiresAt = new Date(invite.expires_at)
-          const isNotExpired = expiresAt > now
-          const isNotUsed = !invite.used_at
-          
-          addDebugInfo(`Validação manual: não expirado=${isNotExpired}, não usado=${isNotUsed}`)
-          addDebugInfo(`Data atual: ${now.toISOString()}, Expira em: ${expiresAt.toISOString()}`)
-          
-          if (isNotExpired && isNotUsed) {
-            setInviteData(invite)
-            addDebugInfo('Convite válido!')
-            return
-          } else {
-            if (!isNotExpired) {
-              setInviteError('Convite expirado')
-              addDebugInfo('Convite expirado')
-            } else {
-              setInviteError('Convite já foi usado')
-              addDebugInfo('Convite já foi usado')
-            }
-            return
-          }
-        }
-
-        // Se chegou aqui, não encontrou o convite
-        addDebugInfo('Convite não encontrado')
-        setInviteError('Convite não encontrado')
-
+        setInviteData(data)
       } catch (err) {
-        addDebugInfo(`Erro na verificação: ${err}`)
         setInviteError('Erro ao verificar convite')
       }
     }
@@ -115,14 +75,10 @@ export default function InvitePageDebug({ params }: InvitePageProps) {
     }
 
     setIsLoading(true)
-    addDebugInfo('Tentando aceitar convite...')
-    
     try {
       await acceptInvite(params.token, password, name)
-      addDebugInfo('Convite aceito com sucesso!')
       router.push('/dashboard')
     } catch (err) {
-      addDebugInfo(`Erro ao aceitar convite: ${err}`)
       console.error('Accept invite error:', err)
     } finally {
       setIsLoading(false)
@@ -133,7 +89,7 @@ export default function InvitePageDebug({ params }: InvitePageProps) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-cover bg-center">
         <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
-        <Card className="w-full max-w-lg z-10 bg-card/80">
+        <Card className="w-full max-w-sm z-10 bg-card/80">
           <CardHeader className="text-center">
             <div className="flex justify-center items-center mb-4">
               <Swords className="h-10 w-10 text-destructive" />
@@ -141,14 +97,6 @@ export default function InvitePageDebug({ params }: InvitePageProps) {
             <CardTitle className="text-2xl font-serif">Convite Inválido</CardTitle>
             <CardDescription>{inviteError}</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="text-xs bg-gray-100 p-3 rounded max-h-40 overflow-y-auto">
-              <strong>Debug Info:</strong>
-              {debugInfo.map((info, index) => (
-                <div key={index}>{info}</div>
-              ))}
-            </div>
-          </CardContent>
           <CardFooter>
             <Button 
               className="w-full" 
@@ -168,11 +116,6 @@ export default function InvitePageDebug({ params }: InvitePageProps) {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Verificando convite...</p>
-          <div className="text-xs mt-4 bg-gray-100 p-3 rounded max-h-40 overflow-y-auto max-w-md">
-            {debugInfo.map((info, index) => (
-              <div key={index}>{info}</div>
-            ))}
-          </div>
         </div>
       </div>
     )
