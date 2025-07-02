@@ -354,24 +354,274 @@ export default function CampaignSettingsPage() {
     )
   }
 
-  const SimplePlayerManagement = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-medium">Gerenciamento de Jogadores</h3>
-        <p className="text-sm text-muted-foreground">Convide e gerencie jogadores da campanha</p>
-      </div>
-      <div className="space-y-4">
-        <div className="p-4 border rounded-lg">
-          <h4 className="font-medium mb-2">Jogadores Atuais</h4>
-          <p className="text-sm text-muted-foreground">Lista de jogadores aparecerá aqui</p>
+  const PlayerManagement = () => {
+    const [players, setPlayers] = useState<any[]>([])
+    const [pendingInvites, setPendingInvites] = useState<any[]>([])
+    const [loading, setLoading] = useState(true)
+    const [inviteEmail, setInviteEmail] = useState('')
+    const [inviting, setInviting] = useState(false)
+    const [error, setError] = useState('')
+
+    console.log('🎮 PlayerManagement - Iniciado')
+
+    // Buscar jogadores e convites pendentes
+    useEffect(() => {
+      fetchPlayersAndInvites()
+    }, [])
+
+    const fetchPlayersAndInvites = async () => {
+      try {
+        setLoading(true)
+        console.log('🎮 PlayerManagement - Buscando jogadores e convites')
+
+        // Buscar jogadores atuais
+        const { data: playersData, error: playersError } = await supabase
+          .from('campaign_players')
+          .select(`
+            *,
+            users (
+              id,
+              name,
+              email
+            )
+          `)
+          .eq('campaign_id', campaign.id)
+
+        if (playersError) {
+          console.error('Erro ao buscar jogadores:', playersError)
+          throw playersError
+        }
+
+        // Buscar convites pendentes
+        const { data: invitesData, error: invitesError } = await supabase
+          .from('invites')
+          .select('*')
+          .eq('campaign_id', campaign.id)
+          .is('used_at', null)
+          .gt('expires_at', new Date().toISOString())
+
+        if (invitesError) {
+          console.error('Erro ao buscar convites:', invitesError)
+          throw invitesError
+        }
+
+        console.log('🎮 PlayerManagement - Jogadores:', playersData)
+        console.log('🎮 PlayerManagement - Convites:', invitesData)
+
+        setPlayers(playersData || [])
+        setPendingInvites(invitesData || [])
+
+      } catch (err) {
+        console.error('🎮 PlayerManagement - Erro:', err)
+        setError(err instanceof Error ? err.message : 'Erro ao carregar dados')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    const handleInvitePlayer = async () => {
+      if (!inviteEmail.trim()) {
+        setError('Email é obrigatório')
+        return
+      }
+
+      setInviting(true)
+      setError('')
+
+      try {
+        console.log('🎮 PlayerManagement - Enviando convite para:', inviteEmail)
+
+        // Gerar token único
+        const token = crypto.randomUUID()
+        const expiresAt = new Date()
+        expiresAt.setDate(expiresAt.getDate() + 7) // Expira em 7 dias
+
+        const { error } = await supabase
+          .from('invites')
+          .insert({
+            email: inviteEmail.trim(),
+            token,
+            expires_at: expiresAt.toISOString(),
+            invited_by: user?.id,
+            campaign_id: campaign.id
+          })
+
+        if (error) {
+          console.error('🎮 PlayerManagement - Erro ao criar convite:', error)
+          throw error
+        }
+
+        console.log('🎮 PlayerManagement - Convite criado com sucesso')
+        setInviteEmail('')
+        await fetchPlayersAndInvites() // Atualizar lista
+
+      } catch (err) {
+        console.error('🎮 PlayerManagement - Erro:', err)
+        setError(err instanceof Error ? err.message : 'Erro ao enviar convite')
+      } finally {
+        setInviting(false)
+      }
+    }
+
+    const handleRemovePlayer = async (playerId: string) => {
+      try {
+        console.log('🎮 PlayerManagement - Removendo jogador:', playerId)
+
+        const { error } = await supabase
+          .from('campaign_players')
+          .delete()
+          .eq('id', playerId)
+          .eq('campaign_id', campaign.id)
+
+        if (error) {
+          console.error('🎮 PlayerManagement - Erro ao remover jogador:', error)
+          throw error
+        }
+
+        console.log('🎮 PlayerManagement - Jogador removido com sucesso')
+        await fetchPlayersAndInvites() // Atualizar lista
+
+      } catch (err) {
+        console.error('🎮 PlayerManagement - Erro:', err)
+        setError(err instanceof Error ? err.message : 'Erro ao remover jogador')
+      }
+    }
+
+    const handleCancelInvite = async (inviteId: string) => {
+      try {
+        console.log('🎮 PlayerManagement - Cancelando convite:', inviteId)
+
+        const { error } = await supabase
+          .from('invites')
+          .delete()
+          .eq('id', inviteId)
+
+        if (error) {
+          console.error('🎮 PlayerManagement - Erro ao cancelar convite:', error)
+          throw error
+        }
+
+        console.log('🎮 PlayerManagement - Convite cancelado com sucesso')
+        await fetchPlayersAndInvites() // Atualizar lista
+
+      } catch (err) {
+        console.error('🎮 PlayerManagement - Erro:', err)
+        setError(err instanceof Error ? err.message : 'Erro ao cancelar convite')
+      }
+    }
+
+    if (loading) {
+      return (
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-lg font-medium">Gerenciamento de Jogadores</h3>
+            <p className="text-sm text-muted-foreground">Convide e gerencie jogadores da campanha</p>
+          </div>
+          <div className="flex items-center justify-center p-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+          </div>
         </div>
+      )
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-lg font-medium">Gerenciamento de Jogadores</h3>
+          <p className="text-sm text-muted-foreground">Convide e gerencie jogadores da campanha</p>
+        </div>
+
+        {error && (
+          <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+            <p className="text-destructive text-sm">{error}</p>
+          </div>
+        )}
+
+        {/* Convidar Novo Jogador */}
         <div className="p-4 border rounded-lg">
-          <h4 className="font-medium mb-2">Convidar Jogadores</h4>
-          <p className="text-sm text-muted-foreground">Sistema de convites em desenvolvimento</p>
+          <h4 className="font-medium mb-4">Convidar Novo Jogador</h4>
+          <div className="flex gap-2">
+            <input
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="Email do jogador"
+              className="flex-1 p-2 border rounded-md"
+              disabled={inviting}
+            />
+            <Button 
+              onClick={handleInvitePlayer}
+              disabled={inviting || !inviteEmail.trim()}
+              className="flex items-center gap-2"
+            >
+              {inviting && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>}
+              {inviting ? 'Enviando...' : 'Convidar'}
+            </Button>
+          </div>
+        </div>
+
+        {/* Jogadores Atuais */}
+        <div className="p-4 border rounded-lg">
+          <h4 className="font-medium mb-4">Jogadores Atuais ({players.length})</h4>
+          {players.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum jogador na campanha ainda</p>
+          ) : (
+            <div className="space-y-2">
+              {players.map((player) => (
+                <div key={player.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <div>
+                    <p className="font-medium">{player.users?.name || 'Nome não disponível'}</p>
+                    <p className="text-sm text-muted-foreground">{player.users?.email}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Entrou em: {new Date(player.joined_at).toLocaleDateString('pt-BR')}
+                    </p>
+                  </div>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleRemovePlayer(player.id)}
+                  >
+                    Remover
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Convites Pendentes */}
+        <div className="p-4 border rounded-lg">
+          <h4 className="font-medium mb-4">Convites Pendentes ({pendingInvites.length})</h4>
+          {pendingInvites.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum convite pendente</p>
+          ) : (
+            <div className="space-y-2">
+              {pendingInvites.map((invite) => (
+                <div key={invite.id} className="flex items-center justify-between p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div>
+                    <p className="font-medium">{invite.email}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Enviado em: {new Date(invite.created_at).toLocaleDateString('pt-BR')}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Expira em: {new Date(invite.expires_at).toLocaleDateString('pt-BR')}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCancelInvite(invite.id)}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   const SimpleSheetTemplateEditor = () => (
     <div className="space-y-6">
@@ -541,7 +791,7 @@ export default function CampaignSettingsPage() {
             <CampaignSettingsForm />
           </TabsContent>
           <TabsContent value="players" className="mt-6">
-            <SimplePlayerManagement />
+            <PlayerManagement />
           </TabsContent>
           <TabsContent value="sheet" className="mt-6">
             <SimpleSheetTemplateEditor />
