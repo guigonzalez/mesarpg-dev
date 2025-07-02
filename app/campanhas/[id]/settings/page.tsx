@@ -125,32 +125,219 @@ export default function CampaignSettingsPage() {
 
   console.log('CampaignSettingsPage - Renderizando página de configurações')
 
-  // Componentes simples para substituir os complexos do MVP
-  const SimpleCampaignSettingsForm = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-medium">Configurações Gerais</h3>
-        <p className="text-sm text-muted-foreground">Gerencie as configurações básicas da campanha</p>
+  // Componente funcional para configurações gerais
+  const CampaignSettingsForm = () => {
+    const [isEditing, setIsEditing] = useState(false)
+    const [isSaving, setIsSaving] = useState(false)
+    const [formData, setFormData] = useState({
+      name: campaign.name,
+      system: campaign.system,
+      description: campaign.description || ''
+    })
+    const [errors, setErrors] = useState<{[key: string]: string}>({})
+
+    console.log('🎮 CampaignSettingsForm - Iniciado')
+    console.log('🎮 CampaignSettingsForm - Campaign:', campaign.name)
+    console.log('🎮 CampaignSettingsForm - Form data:', formData)
+
+    const validateForm = () => {
+      const newErrors: {[key: string]: string} = {}
+      
+      if (!formData.name.trim()) {
+        newErrors.name = 'Nome da campanha é obrigatório'
+      } else if (formData.name.trim().length < 3) {
+        newErrors.name = 'Nome deve ter pelo menos 3 caracteres'
+      } else if (formData.name.trim().length > 100) {
+        newErrors.name = 'Nome deve ter no máximo 100 caracteres'
+      }
+
+      if (!formData.system) {
+        newErrors.system = 'Sistema de RPG é obrigatório'
+      }
+
+      if (formData.description.length > 500) {
+        newErrors.description = 'Descrição deve ter no máximo 500 caracteres'
+      }
+
+      setErrors(newErrors)
+      return Object.keys(newErrors).length === 0
+    }
+
+    const handleSave = async () => {
+      console.log('🎮 CampaignSettingsForm - Salvando:', formData)
+      
+      if (!validateForm()) {
+        console.log('🎮 CampaignSettingsForm - Validação falhou:', errors)
+        return
+      }
+
+      setIsSaving(true)
+      setErrors({})
+
+      try {
+        const { data, error } = await supabase
+          .from('campaigns')
+          .update({
+            name: formData.name.trim(),
+            system: formData.system as Database['public']['Enums']['campaign_system'],
+            description: formData.description.trim() || null
+          })
+          .eq('id', campaign.id)
+          .eq('master_id', user?.id) // Política de segurança: só o mestre pode editar
+          .select()
+          .single()
+
+        if (error) {
+          console.error('🎮 CampaignSettingsForm - Erro ao salvar:', error)
+          throw error
+        }
+
+        console.log('🎮 CampaignSettingsForm - Salvo com sucesso:', data)
+        
+        // Atualizar o estado local da campanha
+        setCampaign(data)
+        setIsEditing(false)
+        
+        // Mostrar feedback de sucesso (você pode adicionar um toast aqui)
+        console.log('✅ Configurações salvas com sucesso!')
+
+      } catch (err) {
+        console.error('🎮 CampaignSettingsForm - Erro:', err)
+        setErrors({ 
+          general: err instanceof Error ? err.message : 'Erro ao salvar configurações' 
+        })
+      } finally {
+        setIsSaving(false)
+      }
+    }
+
+    const handleCancel = () => {
+      setFormData({
+        name: campaign.name,
+        system: campaign.system,
+        description: campaign.description || ''
+      })
+      setErrors({})
+      setIsEditing(false)
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-lg font-medium">Configurações Gerais</h3>
+          <p className="text-sm text-muted-foreground">Gerencie as configurações básicas da campanha</p>
+        </div>
+
+        {errors.general && (
+          <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+            <p className="text-destructive text-sm">{errors.general}</p>
+          </div>
+        )}
+
+        <div className="space-y-4">
+          {/* Nome da Campanha */}
+          <div className="p-4 border rounded-lg">
+            <h4 className="font-medium mb-2">Nome da Campanha</h4>
+            {isEditing ? (
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full p-2 border rounded-md"
+                  placeholder="Nome da campanha"
+                  maxLength={100}
+                />
+                {errors.name && (
+                  <p className="text-destructive text-sm">{errors.name}</p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">{campaign.name}</p>
+            )}
+          </div>
+
+          {/* Sistema de RPG */}
+          <div className="p-4 border rounded-lg">
+            <h4 className="font-medium mb-2">Sistema de RPG</h4>
+            {isEditing ? (
+              <div className="space-y-2">
+                <select
+                  value={formData.system}
+                  onChange={(e) => setFormData(prev => ({ ...prev, system: e.target.value as Database['public']['Enums']['campaign_system'] }))}
+                  className="w-full p-2 border rounded-md"
+                >
+                  <option value="D&D 5e">D&D 5e</option>
+                  <option value="Vampiro: A Máscara">Vampiro: A Máscara</option>
+                  <option value="Livre">Sistema Livre</option>
+                </select>
+                {errors.system && (
+                  <p className="text-destructive text-sm">{errors.system}</p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">{campaign.system}</p>
+            )}
+          </div>
+
+          {/* Descrição */}
+          <div className="p-4 border rounded-lg">
+            <h4 className="font-medium mb-2">Descrição</h4>
+            {isEditing ? (
+              <div className="space-y-2">
+                <textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full p-2 border rounded-md h-24 resize-none"
+                  placeholder="Descrição da campanha (opcional)"
+                  maxLength={500}
+                />
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-muted-foreground">
+                    {formData.description.length}/500 caracteres
+                  </span>
+                  {errors.description && (
+                    <p className="text-destructive text-sm">{errors.description}</p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {campaign.description || 'Nenhuma descrição'}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Botões de Ação */}
+        <div className="flex gap-2">
+          {isEditing ? (
+            <>
+              <Button 
+                onClick={handleSave} 
+                disabled={isSaving}
+                className="flex items-center gap-2"
+              >
+                {isSaving && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>}
+                {isSaving ? 'Salvando...' : 'Salvar'}
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={handleCancel}
+                disabled={isSaving}
+              >
+                Cancelar
+              </Button>
+            </>
+          ) : (
+            <Button onClick={() => setIsEditing(true)}>
+              Editar Configurações
+            </Button>
+          )}
+        </div>
       </div>
-      <div className="space-y-4">
-        <div className="p-4 border rounded-lg">
-          <h4 className="font-medium mb-2">Nome da Campanha</h4>
-          <p className="text-sm text-muted-foreground mb-2">Nome atual: {campaign.name}</p>
-          <p className="text-sm text-muted-foreground">Funcionalidade de edição em desenvolvimento</p>
-        </div>
-        <div className="p-4 border rounded-lg">
-          <h4 className="font-medium mb-2">Sistema de RPG</h4>
-          <p className="text-sm text-muted-foreground mb-2">Sistema atual: {campaign.system}</p>
-          <p className="text-sm text-muted-foreground">Funcionalidade de edição em desenvolvimento</p>
-        </div>
-        <div className="p-4 border rounded-lg">
-          <h4 className="font-medium mb-2">Descrição</h4>
-          <p className="text-sm text-muted-foreground mb-2">Descrição atual: {campaign.description || 'Nenhuma descrição'}</p>
-          <p className="text-sm text-muted-foreground">Funcionalidade de edição em desenvolvimento</p>
-        </div>
-      </div>
-    </div>
-  )
+    )
+  }
 
   const SimplePlayerManagement = () => (
     <div className="space-y-6">
@@ -220,7 +407,7 @@ export default function CampaignSettingsPage() {
             </TabsTrigger>
           </TabsList>
           <TabsContent value="general" className="mt-6">
-            <SimpleCampaignSettingsForm />
+            <CampaignSettingsForm />
           </TabsContent>
           <TabsContent value="players" className="mt-6">
             <SimplePlayerManagement />
