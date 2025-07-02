@@ -2,21 +2,66 @@
 
 import type React from "react"
 import { useState, useRef, useMemo, useEffect } from "react"
-import { useMesaStore } from "@/lib/store"
 import { Token } from "./token"
 import { cn } from "@/lib/utils"
 import { MapPin, Eye, EyeOff, Trash2 } from "lucide-react"
 import type { DrawnLine } from "@/lib/types"
 import { Button } from "../ui/button"
+import { Database } from '@/lib/database.types'
 
 export type GridTool = "move" | "measure" | "mark" | "draw"
 
+type Campaign = Database['public']['Tables']['campaigns']['Row']
+type User = {
+  id: string
+  name: string
+  email: string
+  tokenImage?: string
+}
+
+type Token = {
+  id: string
+  ownerId: string
+  type: 'player' | 'npc'
+  name: string
+  image: string
+  position: { x: number; y: number }
+}
+
+type Marker = {
+  id: string
+  position: { x: number; y: number }
+  color: string
+}
+
+type MapData = {
+  id: string
+  name: string
+  backgroundUrl: string
+  gridSize: number
+}
+
 interface GridProps {
+  campaign: Campaign
+  user: User
+  isMaster: boolean
   activeTool: GridTool
   markerColor: string
   drawColor: string
   lines: DrawnLine[]
   setLines: (lines: DrawnLine[]) => void
+  // Grid data
+  currentMap: MapData | null
+  tokens: Token[]
+  markers: Marker[]
+  fogOfWar: { x: number; y: number }[]
+  // Action callbacks
+  onTokenMove: (tokenId: string, newPosition: { x: number; y: number }) => void
+  onTokenAdd: (tokenData: Omit<Token, 'id'>) => void
+  onMarkerAdd: (markerData: Omit<Marker, 'id'>) => void
+  onMarkerRemove: (position: { x: number; y: number }) => void
+  onFogOfWarUpdate: (cells: { x: number; y: number }[], mode: 'add' | 'reveal') => void
+  onTokensRemove: (cells: { x: number; y: number }[]) => void
 }
 
 // --- Componente da Barra de Ferramentas de Seleção ---
@@ -47,10 +92,34 @@ const SelectionToolbar = ({
   </div>
 )
 
-export function Grid({ activeTool, markerColor, drawColor, lines, setLines }: GridProps) {
-  const campaign = useMesaStore((state) => state.activeCampaign)
-  const currentUser = useMesaStore((state) => state.currentUser)
-  const { moveToken, addToken, addMarker, removeMarker, updateFogOfWar, removeTokensInArea } = useMesaStore()
+export function Grid({ 
+  campaign, 
+  user, 
+  isMaster, 
+  activeTool, 
+  markerColor, 
+  drawColor, 
+  lines, 
+  setLines,
+  currentMap,
+  tokens,
+  markers,
+  fogOfWar,
+  onTokenMove,
+  onTokenAdd,
+  onMarkerAdd,
+  onMarkerRemove,
+  onFogOfWarUpdate,
+  onTokensRemove
+}: GridProps) {
+  console.log('🎮 Grid - Componente iniciado (REFATORADO)')
+  console.log('🎮 Grid - Campaign:', campaign?.name)
+  console.log('🎮 Grid - User:', user?.name)
+  console.log('🎮 Grid - Is Master:', isMaster)
+  console.log('🎮 Grid - Current Map:', currentMap?.name)
+  console.log('🎮 Grid - Tokens count:', tokens.length)
+  console.log('🎮 Grid - Markers count:', markers.length)
+  
   const gridVisualRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -63,13 +132,6 @@ export function Grid({ activeTool, markerColor, drawColor, lines, setLines }: Gr
   const [selectionStart, setSelectionStart] = useState<{ x: number; y: number } | null>(null)
   const [selectionEnd, setSelectionEnd] = useState<{ x: number; y: number } | null>(null)
   const [selectionPreviewEnd, setSelectionPreviewEnd] = useState<{ x: number; y: number } | null>(null)
-
-  const isMaster = currentUser?.id === campaign?.masterId
-
-  const currentMap = useMemo(() => {
-    if (!campaign || !campaign.activeMapId) return null
-    return campaign.maps?.find((m) => m.id === campaign.activeMapId)
-  }, [campaign])
 
   const gridSize = currentMap?.gridSize ?? 10
   const cellWidthPercent = 100 / gridSize
@@ -135,25 +197,32 @@ export function Grid({ activeTool, markerColor, drawColor, lines, setLines }: Gr
     const tokenId = e.dataTransfer.getData("tokenId")
     const npcId = e.dataTransfer.getData("npcId")
     const userId = e.dataTransfer.getData("userId")
+    
+    console.log('🎮 Grid - Drop event:', { tokenId, npcId, userId, x, y })
+    
     if (tokenId) {
-      const token = campaign?.tokens.find((t) => t.id === tokenId)
-      if (token && (isMaster || token.ownerId === currentUser?.id)) moveToken(tokenId, { x, y })
-    } else if (npcId && campaign?.npcs && isMaster) {
-      const npc = campaign.npcs.find((n) => n.id === npcId)
-      if (npc)
-        addToken({
-          ownerId: npc.id,
-          type: "npc",
-          name: npc.name,
-          image: npc.tokenImage || npc.avatarUrl,
-          position: { x, y },
-        })
-    } else if (userId && currentUser?.id === userId) {
-      addToken({
-        ownerId: currentUser.id,
+      const token = tokens.find((t) => t.id === tokenId)
+      if (token && (isMaster || token.ownerId === user?.id)) {
+        console.log('🎮 Grid - Moving token:', tokenId, 'to', { x, y })
+        onTokenMove(tokenId, { x, y })
+      }
+    } else if (npcId && isMaster) {
+      // Para NPCs, vamos criar um token simples por enquanto
+      console.log('🎮 Grid - Adding NPC token:', npcId)
+      onTokenAdd({
+        ownerId: npcId,
+        type: "npc",
+        name: `NPC-${npcId}`,
+        image: "/placeholder.svg",
+        position: { x, y },
+      })
+    } else if (userId && user?.id === userId) {
+      console.log('🎮 Grid - Adding player token:', userId)
+      onTokenAdd({
+        ownerId: user.id,
         type: "player",
-        name: currentUser.name,
-        image: currentUser.tokenImage || "",
+        name: user.name,
+        image: user.tokenImage || "/placeholder.svg",
         position: { x, y },
       })
     }
@@ -178,7 +247,8 @@ export function Grid({ activeTool, markerColor, drawColor, lines, setLines }: Gr
 
   const handleCellClick = (x: number, y: number) => {
     if (activeTool === "mark" && isMaster) {
-      addMarker({ position: { x, y }, color: markerColor })
+      console.log('🎮 Grid - Adding marker at:', { x, y, color: markerColor })
+      onMarkerAdd({ position: { x, y }, color: markerColor })
       return
     }
 
@@ -276,7 +346,7 @@ export function Grid({ activeTool, markerColor, drawColor, lines, setLines }: Gr
   const selectedCellSet = new Set(
     (isSelectingArea ? previewSelectedCells : finalSelectedCells).map((c) => `${c.x},${c.y}`),
   )
-  const fogCellSet = new Set((campaign.fogOfWar || []).map((c) => `${c.x},${c.y}`))
+  const fogCellSet = new Set(fogOfWar.map((c) => `${c.x},${c.y}`))
 
   return (
     <div className="relative flex-grow flex items-center justify-center p-4">
@@ -336,7 +406,7 @@ export function Grid({ activeTool, markerColor, drawColor, lines, setLines }: Gr
 
         {/* Camada 2: Tokens */}
         <div className="absolute inset-0 z-20 pointer-events-none">
-          {campaign?.tokens.map((token) => {
+          {tokens.map((token) => {
             const isFogged = fogCellSet.has(`${token.position.x},${token.position.y}`)
             if (isFogged && !isMaster) return null
             return (
@@ -361,7 +431,7 @@ export function Grid({ activeTool, markerColor, drawColor, lines, setLines }: Gr
 
         {/* Camada 3: Marcadores */}
         <div className="absolute inset-0 z-30 pointer-events-none">
-          {campaign?.markers?.map((marker) => {
+          {markers.map((marker) => {
             const isFogged = fogCellSet.has(`${marker.position.x},${marker.position.y}`)
             if (isFogged && !isMaster) return null
             return (
@@ -409,9 +479,9 @@ export function Grid({ activeTool, markerColor, drawColor, lines, setLines }: Gr
         {/* Camada 6: Barra de Ferramentas de Seleção */}
         {isMaster && finalSelectedCells.length > 0 && (
           <SelectionToolbar
-            onHide={() => handleToolbarAction(() => updateFogOfWar(finalSelectedCells, "add"))}
-            onReveal={() => handleToolbarAction(() => updateFogOfWar(finalSelectedCells, "reveal"))}
-            onRemoveTokens={() => handleToolbarAction(() => removeTokensInArea(finalSelectedCells))}
+            onHide={() => handleToolbarAction(() => onFogOfWarUpdate(finalSelectedCells, "add"))}
+            onReveal={() => handleToolbarAction(() => onFogOfWarUpdate(finalSelectedCells, "reveal"))}
+            onRemoveTokens={() => handleToolbarAction(() => onTokensRemove(finalSelectedCells))}
             onClearSelection={clearSelection}
           />
         )}
