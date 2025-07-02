@@ -393,14 +393,30 @@ export default function CampaignSettingsPage() {
           throw playersError
         }
 
-        // Buscar convites pendentes (não usados e não expirados)
-        const { data: invitesData, error: invitesError } = await supabase
+        // Buscar emails dos jogadores atuais para filtrar convites já aceitos
+        const playerEmails = playersData?.map(p => p.users?.email).filter(Boolean) || []
+        console.log('🎮 PlayerManagement - Emails dos jogadores atuais:', playerEmails)
+
+        // Buscar convites pendentes (não expirados e email não está na campanha)
+        const { data: allInvitesData, error: invitesError } = await supabase
           .from('invites')
           .select('*')
           .eq('campaign_id', campaign.id)
-          .is('used_at', null)
           .gt('expires_at', new Date().toISOString())
           .order('created_at', { ascending: false })
+
+        if (invitesError) {
+          console.error('Erro ao buscar convites:', invitesError)
+          throw invitesError
+        }
+
+        // Filtrar convites cujo email não está na lista de jogadores
+        const invitesData = allInvitesData?.filter(invite => 
+          !playerEmails.includes(invite.email)
+        ) || []
+
+        console.log('🎮 PlayerManagement - Todos os convites:', allInvitesData?.length || 0)
+        console.log('🎮 PlayerManagement - Convites filtrados (pendentes):', invitesData.length)
 
         if (invitesError) {
           console.error('Erro ao buscar convites:', invitesError)
