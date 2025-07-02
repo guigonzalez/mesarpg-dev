@@ -400,6 +400,7 @@ export default function CampaignSettingsPage() {
           .eq('campaign_id', campaign.id)
           .is('used_at', null)
           .gt('expires_at', new Date().toISOString())
+          .order('created_at', { ascending: false })
 
         if (invitesError) {
           console.error('Erro ao buscar convites:', invitesError)
@@ -626,7 +627,7 @@ export default function CampaignSettingsPage() {
                         type="text"
                         value={`${window.location.origin}/invite/${invite.token}`}
                         readOnly
-                        className="flex-1 p-2 text-sm border rounded-md bg-white font-mono"
+                        className="flex-1 p-2 text-sm border rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 font-mono"
                       />
                       <Button
                         size="sm"
