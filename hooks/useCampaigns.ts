@@ -70,7 +70,7 @@ export function useCampaigns(): CampaignsState & CampaignsActions {
         loading: false
       }))
     }
-  }, [user, supabase])
+  }, [user?.id]) // Só depende do user.id, não do objeto user completo nem do supabase
 
   // Criar nova campanha
   const createCampaign = useCallback(async (name: string, description: string, system: string): Promise<Campaign> => {
