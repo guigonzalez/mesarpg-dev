@@ -89,7 +89,15 @@ export default function CampaignPage() {
 
       // Verificar se o usuário tem acesso à campanha
       const isMaster = campaignData.master_id === user?.id
-      console.log('Verificando acesso:', { master_id: campaignData.master_id, user_id: user?.id, isMaster })
+      console.log('🔍 VERIFICAÇÃO DE MESTRE DETALHADA:')
+      console.log('  Campaign master_id:', campaignData.master_id)
+      console.log('  Campaign master_id type:', typeof campaignData.master_id)
+      console.log('  User ID:', user?.id)
+      console.log('  User ID type:', typeof user?.id)
+      console.log('  User email:', user?.email)
+      console.log('  IDs são iguais?', campaignData.master_id === user?.id)
+      console.log('  Comparação string:', String(campaignData.master_id) === String(user?.id))
+      console.log('  isMaster resultado:', isMaster)
       
       let hasAccess = isMaster
       
