@@ -41,11 +41,12 @@ export function useCampaigns(): CampaignsState & CampaignsActions {
     try {
       console.log('Buscando campanhas para usuário:', user.id)
       
-      // Buscar apenas campanhas onde o usuário é mestre (query simples)
+      // Buscar apenas campanhas ativas onde o usuário é mestre
       const { data: campaigns, error } = await supabase
         .from('campaigns')
         .select('*')
         .eq('master_id', user.id)
+        .eq('status', 'active')
         .order('created_at', { ascending: false })
 
       if (error) {
