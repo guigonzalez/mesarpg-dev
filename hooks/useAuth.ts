@@ -246,7 +246,13 @@ export function useAuth(): AuthState & AuthActions {
 
       // Criar campaign_player se o convite tem campaign_id
       if (invite.campaign_id) {
-        const { error: campaignPlayerError } = await supabase
+        console.log('🎮 AcceptInvite - Criando campaign_player para:', {
+          campaign_id: invite.campaign_id,
+          user_id: authData.user.id,
+          email: invite.email
+        })
+
+        const { data: campaignPlayerData, error: campaignPlayerError } = await supabase
           .from('campaign_players')
           .insert({
             campaign_id: invite.campaign_id,
@@ -254,11 +260,17 @@ export function useAuth(): AuthState & AuthActions {
             joined_at: new Date().toISOString(),
             status: 'active'
           })
+          .select()
 
         if (campaignPlayerError) {
-          console.error('Error creating campaign_player:', campaignPlayerError)
-          // Não falhar aqui, apenas logar o erro
+          console.error('🎮 AcceptInvite - Erro ao criar campaign_player:', campaignPlayerError)
+          // Falhar aqui para garantir que o usuário saiba do problema
+          throw new Error(`Erro ao adicionar à campanha: ${campaignPlayerError.message}`)
         }
+
+        console.log('🎮 AcceptInvite - Campaign_player criado com sucesso:', campaignPlayerData)
+      } else {
+        console.warn('🎮 AcceptInvite - Convite sem campaign_id, não criando campaign_player')
       }
 
       // Marcar convite como usado
