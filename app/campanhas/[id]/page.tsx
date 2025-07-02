@@ -88,16 +88,37 @@ export default function CampaignPage() {
       }
 
       // Verificar se o usuário tem acesso à campanha
-      const hasAccess = campaignData.master_id === user?.id
-      console.log('Verificando acesso:', { master_id: campaignData.master_id, user_id: user?.id, hasAccess })
+      const isMaster = campaignData.master_id === user?.id
+      console.log('Verificando acesso:', { master_id: campaignData.master_id, user_id: user?.id, isMaster })
       
-      // TODO: Por enquanto, permitir acesso para debug
-      // if (!hasAccess) {
-      //   console.log('Usuário não tem acesso como mestre, verificando se é jogador...')
-      //   setError('Você não tem acesso a esta campanha')
-      //   return
-      // }
+      let hasAccess = isMaster
+      
+      // Se não é mestre, verificar se é jogador da campanha
+      if (!isMaster) {
+        console.log('Usuário não é mestre, verificando se é jogador...')
+        const { data: playerData, error: playerError } = await supabase
+          .from('campaign_players')
+          .select('id')
+          .eq('campaign_id', campaignId)
+          .eq('user_id', user?.id)
+          .eq('status', 'active')
+          .single()
 
+        console.log('Resultado da busca de jogador:', { playerData, playerError })
+        
+        if (playerData) {
+          hasAccess = true
+          console.log('Usuário é jogador da campanha')
+        }
+      }
+
+      if (!hasAccess) {
+        console.log('Usuário não tem acesso à campanha')
+        setError('Você não tem acesso a esta campanha')
+        return
+      }
+
+      console.log('Acesso permitido:', { isMaster, hasAccess })
       setCampaign(campaignData)
 
     } catch (err) {
