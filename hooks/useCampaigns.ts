@@ -84,11 +84,27 @@ export function useCampaigns(): CampaignsState & CampaignsActions {
       const allCampaigns = [...(masterCampaigns || [])]
       
       if (playerCampaigns) {
-        playerCampaigns.forEach(pc => {
-          if (pc.campaigns && (pc.campaigns as any).status === 'active') {
-            // Adicionar flag para indicar que é jogador
-            const campaign = { ...(pc.campaigns as any), isPlayer: true }
-            allCampaigns.push(campaign)
+        playerCampaigns.forEach((pc, index) => {
+          console.log(`🎮 PlayerCampaign ${index}:`, {
+            campaign_id: pc.campaign_id,
+            campaigns: pc.campaigns,
+            campaigns_status: pc.campaigns ? (pc.campaigns as any).status : 'NO_CAMPAIGNS'
+          })
+          
+          if (pc.campaigns) {
+            const campaignStatus = (pc.campaigns as any).status
+            console.log(`🎮 Campaign status check: ${campaignStatus} === 'active' = ${campaignStatus === 'active'}`)
+            
+            if (campaignStatus === 'active') {
+              // Adicionar flag para indicar que é jogador
+              const campaign = { ...(pc.campaigns as any), isPlayer: true }
+              console.log('🎮 Adding player campaign:', campaign.name)
+              allCampaigns.push(campaign)
+            } else {
+              console.log('🎮 Campaign not active, skipping:', campaignStatus)
+            }
+          } else {
+            console.log('🎮 No campaigns data in playerCampaign')
           }
         })
       }
