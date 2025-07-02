@@ -1,15 +1,25 @@
 'use client'
 
-import { createContext, useContext, ReactNode, useState, useEffect } from 'react'
+import { createContext, useContext, ReactNode } from 'react'
+import { useAuth } from '@/hooks/useAuth'
 import { User } from '@supabase/supabase-js'
-import { createClientComponentClient } from '@/lib/supabase-browser'
+import { Database } from '@/lib/database.types'
+
+type UserProfile = Database['public']['Tables']['users']['Row']
 
 interface AuthContextType {
   user: User | null
+  profile: UserProfile | null
   loading: boolean
   error: string | null
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
+  resetPassword: (email: string) => Promise<void>
+  acceptInvite: (token: string, password: string, name: string) => Promise<void>
+  sendInvite: (email: string) => Promise<void>
+  canCreateCampaign: () => boolean
+  updateUserRole: () => Promise<void>
+  refreshProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -19,83 +29,10 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  
-  const supabase = createClientComponentClient()
-
-  useEffect(() => {
-    // Get initial session
-    const getSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        setUser(session?.user ?? null)
-      } catch (err) {
-        console.error('Error getting session:', err)
-        setError(err instanceof Error ? err.message : 'Unknown error')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    getSession()
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setUser(session?.user ?? null)
-        setLoading(false)
-      }
-    )
-
-    return () => subscription.unsubscribe()
-  }, [supabase])
-
-  const signIn = async (email: string, password: string) => {
-    setLoading(true)
-    setError(null)
-    
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      })
-      
-      if (error) throw error
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed')
-      throw err
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const signOut = async () => {
-    setLoading(true)
-    setError(null)
-    
-    try {
-      const { error } = await supabase.auth.signOut()
-      if (error) throw error
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Logout failed')
-      throw err
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const value = {
-    user,
-    loading,
-    error,
-    signIn,
-    signOut
-  }
+  const auth = useAuth()
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={auth}>
       {children}
     </AuthContext.Provider>
   )
@@ -107,4 +44,58 @@ export function useAuthContext() {
     throw new Error('useAuthContext must be used within an AuthProvider')
   }
   return context
+}
+
+// Loading component for authentication states
+export function AuthLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+        <p className="text-gray-600">Carregando...</p>
+      </div>
+    </div>
+  )
+}
+
+// Protected route wrapper
+interface ProtectedRouteProps {
+  children: ReactNode
+  fallback?: ReactNode
+}
+
+export function ProtectedRoute({ children, fallback }: ProtectedRouteProps) {
+  const { user, loading } = useAuthContext()
+
+  if (loading) {
+    return fallback || <AuthLoading />
+  }
+
+  if (!user) {
+    // Redirect to login will be handled by middleware
+    return null
+  }
+
+  return <>{children}</>
+}
+
+// Public route wrapper (only for non-authenticated users)
+interface PublicRouteProps {
+  children: ReactNode
+  fallback?: ReactNode
+}
+
+export function PublicRoute({ children, fallback }: PublicRouteProps) {
+  const { user, loading } = useAuthContext()
+
+  if (loading) {
+    return fallback || <AuthLoading />
+  }
+
+  if (user) {
+    // Redirect to dashboard will be handled by middleware
+    return null
+  }
+
+  return <>{children}</>
 }
