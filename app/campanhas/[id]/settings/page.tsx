@@ -537,7 +537,10 @@ export default function CampaignSettingsPage() {
 
         console.log('🎮 PlayerManagement - Convite deletado com sucesso do banco de dados')
         
-        // Atualizar lista imediatamente
+        // Aguardar um pouco para garantir que o banco foi atualizado
+        await new Promise(resolve => setTimeout(resolve, 500))
+        
+        // Atualizar lista
         await fetchPlayersAndInvites()
         
         console.log('🎮 PlayerManagement - Lista atualizada após cancelamento')
