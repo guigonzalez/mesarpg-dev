@@ -16,11 +16,17 @@ import type { DrawnLine } from "@/lib/types"
 type Campaign = Database['public']['Tables']['campaigns']['Row']
 
 export default function CampaignPage() {
+  console.log('CampaignPage - Componente iniciado')
+  
   const { user } = useAuth()
   const router = useRouter()
   const params = useParams()
   const campaignId = params.id as string
   const supabase = createClientComponentClient()
+
+  console.log('CampaignPage - Params:', params)
+  console.log('CampaignPage - Campaign ID:', campaignId)
+  console.log('CampaignPage - User:', user?.id)
 
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [loading, setLoading] = useState(true)

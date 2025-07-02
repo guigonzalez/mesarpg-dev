@@ -11,6 +11,11 @@ export async function middleware(request: NextRequest) {
   const url = request.nextUrl.clone()
   const pathname = url.pathname
 
+  // Debug log for campaign pages
+  if (pathname.startsWith('/campanhas/')) {
+    console.log('Middleware - Campanha page:', pathname, 'Session:', !!session)
+  }
+
   // Public routes that don't require authentication
   const publicRoutes = [
     '/login',
