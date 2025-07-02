@@ -45,12 +45,17 @@ export default function CampaignPage() {
       setLoading(true)
       setError(null)
 
+      console.log('Buscando campanha:', campaignId)
+      console.log('Usuário:', user?.id)
+
       // Buscar dados da campanha
       const { data: campaignData, error: campaignError } = await supabase
         .from('campaigns')
         .select('*')
         .eq('id', campaignId)
         .single()
+
+      console.log('Resultado da busca:', { campaignData, campaignError })
 
       if (campaignError) {
         if (campaignError.code === 'PGRST116') {
@@ -62,8 +67,11 @@ export default function CampaignPage() {
 
       // Verificar se o usuário tem acesso à campanha
       const hasAccess = campaignData.master_id === user?.id
+      console.log('Verificando acesso:', { master_id: campaignData.master_id, user_id: user?.id, hasAccess })
+      
       if (!hasAccess) {
         // TODO: Verificar se é jogador da campanha
+        console.log('Usuário não tem acesso como mestre, verificando se é jogador...')
         setError('Você não tem acesso a esta campanha')
         return
       }
