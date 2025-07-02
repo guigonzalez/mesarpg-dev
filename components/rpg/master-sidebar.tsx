@@ -18,11 +18,21 @@ import { PlayerList } from "./player-list"
 type PanelView = "players" | "maps" | "npcs" | "handouts" | "sheets"
 
 export function MasterSidebar() {
+  console.log('🎮 MasterSidebar - Componente iniciado')
+  
   const campaign = useMesaStore((state) => state.activeCampaign)
   const [isOpen, setIsOpen] = useState(true)
   const [activeView, setActiveView] = useState<PanelView>("players")
 
-  if (!campaign) return null
+  console.log('🎮 MasterSidebar - Campaign do store:', campaign)
+  console.log('🎮 MasterSidebar - Campaign existe?', !!campaign)
+
+  if (!campaign) {
+    console.log('🎮 MasterSidebar - Retornando null (sem campanha)')
+    return null
+  }
+
+  console.log('🎮 MasterSidebar - Renderizando sidebar')
 
   const handleViewChange = (view: PanelView) => {
     setActiveView(view)
