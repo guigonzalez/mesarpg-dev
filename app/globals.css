@@ -1,0 +1,62 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-inter: "Inter", sans-serif;
+    --font-lora: "Lora", serif;
+
+    /* Tema "Pedra e Pergaminho" (Escuro Suave) */
+    --background: 224 10% 10%; /* Cinza-azulado muito escuro */
+    --foreground: 210 40% 98%; /* Branco suave */
+
+    --card: 224 10% 12%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 224 10% 10%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 34 90% 55%; /* Âmbar/Dourado */
+    --primary-foreground: 24 9.8% 10%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 224 10% 20%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 224 10% 25%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 224 10% 25%;
+    --input: 224 10% 25%;
+    --ring: 34 90% 55%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    /* As variáveis já estão definidas na raiz, então não precisamos redefini-las aqui */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-serif;
+  }
+}
