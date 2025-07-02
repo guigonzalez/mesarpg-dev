@@ -185,17 +185,30 @@ export function useAuth(): AuthState & AuthActions {
     setState(prev => ({ ...prev, loading: true, error: null }))
 
     try {
-      // Verificar se o convite é válido
-      const { data: invite, error: inviteError } = await supabase
+      // Buscar convite sem filtros para evitar problemas de RLS
+      const { data: allInvites, error: inviteError } = await supabase
         .from('invites')
         .select('*')
         .eq('token', token)
-        .eq('used_at', null)
-        .gt('expires_at', new Date().toISOString())
-        .single()
 
-      if (inviteError || !invite) {
-        throw new Error('Convite inválido ou expirado')
+      if (inviteError || !allInvites || allInvites.length === 0) {
+        throw new Error('Convite não encontrado')
+      }
+
+      const invite = allInvites[0]
+
+      // Verificar manualmente se está válido
+      const now = new Date()
+      const expiresAt = new Date(invite.expires_at)
+      const isNotExpired = expiresAt > now
+      const isNotUsed = !invite.used_at
+
+      if (!isNotExpired) {
+        throw new Error('Convite expirado')
+      }
+
+      if (!isNotUsed) {
+        throw new Error('Convite já foi usado')
       }
 
       // Criar conta no Supabase Auth
