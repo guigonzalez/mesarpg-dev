@@ -18,7 +18,6 @@ interface AuthActions {
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
   resetPassword: (email: string) => Promise<void>
-  acceptInvite: (token: string, password: string, name: string) => Promise<void>
   sendInvite: (email: string) => Promise<void>
   canCreateCampaign: () => boolean
   updateUserRole: () => Promise<void>
@@ -180,120 +179,6 @@ export function useAuth(): AuthState & AuthActions {
     }
   }, [supabase.auth])
 
-  // Função para aceitar convite
-  const acceptInvite = useCallback(async (token: string, password: string, name: string) => {
-    setState(prev => ({ ...prev, loading: true, error: null }))
-
-    try {
-      // Buscar convite sem filtros para evitar problemas de RLS
-      const { data: allInvites, error: inviteError } = await supabase
-        .from('invites')
-        .select('*')
-        .eq('token', token)
-
-      if (inviteError || !allInvites || allInvites.length === 0) {
-        throw new Error('Convite não encontrado')
-      }
-
-      const invite = allInvites[0]
-
-      // Verificar manualmente se está válido
-      const now = new Date()
-      const expiresAt = new Date(invite.expires_at)
-      const isNotExpired = expiresAt > now
-      const isNotUsed = !invite.used_at
-
-      if (!isNotExpired) {
-        throw new Error('Convite expirado')
-      }
-
-      if (!isNotUsed) {
-        throw new Error('Convite já foi usado')
-      }
-
-      // Criar conta no Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: invite.email,
-        password,
-        options: {
-          data: {
-            name
-          }
-        }
-      })
-
-      if (authError) {
-        throw authError
-      }
-
-      if (!authData.user) {
-        throw new Error('Erro ao criar usuário')
-      }
-
-      // Criar perfil do usuário
-      const { error: profileError } = await supabase
-        .from('users')
-        .insert({
-          id: authData.user.id,
-          email: invite.email,
-          name,
-          invited_by: invite.invited_by
-        })
-
-      if (profileError) {
-        throw profileError
-      }
-
-      // Criar campaign_player se o convite tem campaign_id
-      if (invite.campaign_id) {
-        console.log('🎮 AcceptInvite - Criando campaign_player para:', {
-          campaign_id: invite.campaign_id,
-          user_id: authData.user.id,
-          email: invite.email
-        })
-
-        const { data: campaignPlayerData, error: campaignPlayerError } = await supabase
-          .from('campaign_players')
-          .insert({
-            campaign_id: invite.campaign_id,
-            user_id: authData.user.id,
-            joined_at: new Date().toISOString(),
-            status: 'active'
-          })
-          .select()
-
-        if (campaignPlayerError) {
-          console.error('🎮 AcceptInvite - Erro ao criar campaign_player:', campaignPlayerError)
-          // Falhar aqui para garantir que o usuário saiba do problema
-          throw new Error(`Erro ao adicionar à campanha: ${campaignPlayerError.message}`)
-        }
-
-        console.log('🎮 AcceptInvite - Campaign_player criado com sucesso:', campaignPlayerData)
-      } else {
-        console.warn('🎮 AcceptInvite - Convite sem campaign_id, não criando campaign_player')
-      }
-
-      // Marcar convite como usado
-      const { error: updateError } = await supabase
-        .from('invites')
-        .update({ used_at: new Date().toISOString() })
-        .eq('id', invite.id)
-
-      if (updateError) {
-        console.error('Error updating invite:', updateError)
-      }
-
-      setState(prev => ({ ...prev, loading: false }))
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao aceitar convite'
-      setState(prev => ({ 
-        ...prev, 
-        loading: false, 
-        error: message 
-      }))
-      throw error
-    }
-  }, [supabase])
 
   // Função para enviar convite
   const sendInvite = useCallback(async (email: string) => {
@@ -432,7 +317,6 @@ export function useAuth(): AuthState & AuthActions {
     signIn,
     signOut,
     resetPassword,
-    acceptInvite,
     sendInvite,
     canCreateCampaign,
     updateUserRole,

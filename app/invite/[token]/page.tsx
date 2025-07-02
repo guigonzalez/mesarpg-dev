@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useAuthContext } from "@/components/auth/AuthProvider"
-import { Swords, Eye, EyeOff, UserPlus } from "lucide-react"
+import { useAuth } from "@/hooks/useAuth"
+import { Swords, Eye, EyeOff, UserPlus, LogIn, CheckCircle } from "lucide-react"
 import { createClientComponentClient } from '@/lib/supabase-browser'
 
 interface InvitePageProps {
@@ -16,268 +16,497 @@ interface InvitePageProps {
   }
 }
 
-export default function InvitePageDebug({ params }: InvitePageProps) {
+type InviteState = 'loading' | 'invalid' | 'signup' | 'login' | 'auto-join' | 'success' | 'already-member'
+
+export default function InvitePage({ params }: InvitePageProps) {
+  const [state, setState] = useState<InviteState>('loading')
+  const [inviteData, setInviteData] = useState<any>(null)
+  const [error, setError] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  
+  // Form states
   const [name, setName] = useState("")
+  const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [inviteData, setInviteData] = useState<any>(null)
-  const [inviteError, setInviteError] = useState("")
-  const [debugInfo, setDebugInfo] = useState<string[]>([])
   
-  const { acceptInvite, error } = useAuthContext()
+  const { user, signIn } = useAuth()
   const router = useRouter()
-  
-  // Create Supabase client for checking invite
   const supabase = createClientComponentClient()
 
-  const addDebugInfo = (info: string) => {
-    setDebugInfo(prev => [...prev, `${new Date().toLocaleTimeString()}: ${info}`])
-    console.log('DEBUG:', info)
-  }
-
-  // Verificar se o convite é válido ao carregar a página
+  // Verificar convite e determinar estado
   useEffect(() => {
-    const checkInvite = async () => {
-      addDebugInfo(`Verificando convite com token: ${params.token}`)
+    const checkInviteAndUserState = async () => {
+      console.log('🎮 InvitePage - Verificando convite e estado do usuário')
       
       try {
-        // Primeiro, tentar buscar sem filtros para ver se o token existe
-        addDebugInfo('Buscando convite sem filtros...')
-        const { data: allInvites, error: allError } = await supabase
+        // 1. Verificar se o convite é válido
+        const { data: invites, error: inviteError } = await supabase
           .from('invites')
           .select('*')
           .eq('token', params.token)
 
-        addDebugInfo(`Resultado busca sem filtros: ${allInvites?.length || 0} convites encontrados`)
-        if (allError) {
-          addDebugInfo(`Erro na busca sem filtros: ${allError.message}`)
+        if (inviteError || !invites || invites.length === 0) {
+          console.log('🎮 InvitePage - Convite não encontrado')
+          setState('invalid')
+          setError('Convite não encontrado')
+          return
         }
 
-        if (allInvites && allInvites.length > 0) {
-          const invite = allInvites[0]
-          addDebugInfo(`Convite encontrado: email=${invite.email}, expires_at=${invite.expires_at}, used_at=${invite.used_at}`)
-          
-          // Verificar manualmente se está válido
-          const now = new Date()
-          const expiresAt = new Date(invite.expires_at)
-          const isNotExpired = expiresAt > now
-          const isNotUsed = !invite.used_at
-          
-          addDebugInfo(`Validação manual: não expirado=${isNotExpired}, não usado=${isNotUsed}`)
-          addDebugInfo(`Data atual: ${now.toISOString()}, Expira em: ${expiresAt.toISOString()}`)
-          
-          if (isNotExpired && isNotUsed) {
-            setInviteData(invite)
-            addDebugInfo('Convite válido!')
-            return
-          } else {
-            if (!isNotExpired) {
-              setInviteError('Convite expirado')
-              addDebugInfo('Convite expirado')
-            } else {
-              setInviteError('Convite já foi usado')
-              addDebugInfo('Convite já foi usado')
-            }
+        const invite = invites[0]
+        console.log('🎮 InvitePage - Convite encontrado:', invite.email)
+
+        // Verificar se o convite está válido
+        const now = new Date()
+        const expiresAt = new Date(invite.expires_at)
+        
+        if (expiresAt <= now) {
+          console.log('🎮 InvitePage - Convite expirado')
+          setState('invalid')
+          setError('Convite expirado')
+          return
+        }
+
+        if (invite.used_at) {
+          console.log('🎮 InvitePage - Convite já foi usado')
+          setState('invalid')
+          setError('Convite já foi usado')
+          return
+        }
+
+        setInviteData(invite)
+        setEmail(invite.email)
+
+        // 2. Verificar se o usuário já está na campanha
+        if (invite.campaign_id) {
+          const { data: existingPlayer } = await supabase
+            .from('campaign_players')
+            .select('id')
+            .eq('campaign_id', invite.campaign_id)
+            .eq('user_id', user?.id || '')
+            .eq('status', 'active')
+            .single()
+
+          if (existingPlayer) {
+            console.log('🎮 InvitePage - Usuário já está na campanha')
+            setState('already-member')
             return
           }
         }
 
-        // Se chegou aqui, não encontrou o convite
-        addDebugInfo('Convite não encontrado')
-        setInviteError('Convite não encontrado')
+        // 3. Determinar estado baseado no usuário
+        if (user) {
+          // Usuário logado - auto-join
+          console.log('🎮 InvitePage - Usuário logado, auto-join')
+          setState('auto-join')
+        } else {
+          // Usuário não logado - verificar se tem conta
+          const { data: existingUser } = await supabase
+            .from('users')
+            .select('id')
+            .eq('email', invite.email)
+            .single()
+
+          if (existingUser) {
+            console.log('🎮 InvitePage - Usuário tem conta, mostrar login')
+            setState('login')
+          } else {
+            console.log('🎮 InvitePage - Usuário não tem conta, mostrar signup')
+            setState('signup')
+          }
+        }
 
       } catch (err) {
-        addDebugInfo(`Erro na verificação: ${err}`)
-        setInviteError('Erro ao verificar convite')
+        console.error('🎮 InvitePage - Erro:', err)
+        setState('invalid')
+        setError('Erro ao verificar convite')
       }
     }
 
-    checkInvite()
-  }, [params.token, supabase])
+    checkInviteAndUserState()
+  }, [params.token, user, supabase])
 
-  const handleAcceptInvite = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!name || !password || !confirmPassword) {
-      return
-    }
-
-    if (password !== confirmPassword) {
-      alert('As senhas não coincidem')
-      return
-    }
-
-    if (password.length < 6) {
-      alert('A senha deve ter pelo menos 6 caracteres')
-      return
-    }
+  // Auto-join para usuário logado
+  const handleAutoJoin = async () => {
+    if (!user || !inviteData) return
 
     setIsLoading(true)
-    addDebugInfo('Tentando aceitar convite...')
-    
+    console.log('🎮 InvitePage - Executando auto-join')
+
     try {
-      await acceptInvite(params.token, password, name)
-      addDebugInfo('Convite aceito com sucesso!')
-      router.push('/dashboard')
-    } catch (err: any) {
-      // Log detalhado do erro
-      addDebugInfo(`Erro ao aceitar convite: ${JSON.stringify(err)}`)
-      addDebugInfo(`Erro message: ${err?.message || 'Sem mensagem'}`)
-      addDebugInfo(`Erro code: ${err?.code || 'Sem código'}`)
-      addDebugInfo(`Erro details: ${err?.details || 'Sem detalhes'}`)
-      console.error('Accept invite error:', err)
-      console.error('Error details:', {
-        message: err?.message,
-        code: err?.code,
-        details: err?.details,
-        status: err?.status,
-        statusText: err?.statusText
-      })
+      // Adicionar à campanha
+      if (inviteData.campaign_id) {
+        const { error: campaignPlayerError } = await supabase
+          .from('campaign_players')
+          .insert({
+            campaign_id: inviteData.campaign_id,
+            user_id: user.id,
+            joined_at: new Date().toISOString(),
+            status: 'active'
+          })
+
+        if (campaignPlayerError) {
+          throw campaignPlayerError
+        }
+      }
+
+      // Marcar convite como usado
+      const { error: updateError } = await supabase
+        .from('invites')
+        .update({ used_at: new Date().toISOString() })
+        .eq('id', inviteData.id)
+
+      if (updateError) {
+        console.error('Erro ao marcar convite como usado:', updateError)
+      }
+
+      console.log('🎮 InvitePage - Auto-join concluído com sucesso')
+      setState('success')
+      
+      // Redirecionar após 2 segundos
+      setTimeout(() => {
+        router.push('/dashboard')
+      }, 2000)
+
+    } catch (err) {
+      console.error('🎮 InvitePage - Erro no auto-join:', err)
+      setError(err instanceof Error ? err.message : 'Erro ao entrar na campanha')
     } finally {
       setIsLoading(false)
     }
   }
 
-  if (inviteError) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-cover bg-center">
-        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
-        <Card className="w-full max-w-lg z-10 bg-card/80">
-          <CardHeader className="text-center">
-            <div className="flex justify-center items-center mb-4">
-              <Swords className="h-10 w-10 text-destructive" />
-            </div>
-            <CardTitle className="text-2xl font-serif">Convite Inválido</CardTitle>
-            <CardDescription>{inviteError}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-xs bg-gray-100 p-3 rounded max-h-40 overflow-y-auto">
-              <strong>Debug Info:</strong>
-              {debugInfo.map((info, index) => (
-                <div key={index}>{info}</div>
-              ))}
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button 
-              className="w-full" 
-              onClick={() => router.push('/login')}
-            >
-              Ir para Login
-            </Button>
-          </CardFooter>
-        </Card>
-      </div>
-    )
+  // Login para usuário existente
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!password) return
+
+    setIsLoading(true)
+    console.log('🎮 InvitePage - Executando login')
+
+    try {
+      await signIn(email, password)
+      console.log('🎮 InvitePage - Login realizado, aguardando auto-join')
+      // O useEffect vai detectar o usuário logado e fazer auto-join
+    } catch (err) {
+      console.error('🎮 InvitePage - Erro no login:', err)
+      setError(err instanceof Error ? err.message : 'Erro no login')
+      setIsLoading(false)
+    }
   }
 
-  if (!inviteData) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Verificando convite...</p>
-          <div className="text-xs mt-4 bg-gray-100 p-3 rounded max-h-40 overflow-y-auto max-w-md">
-            {debugInfo.map((info, index) => (
-              <div key={index}>{info}</div>
-            ))}
-          </div>
-        </div>
-      </div>
-    )
+  // Signup para novo usuário
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!name || !password || !confirmPassword) return
+
+    if (password !== confirmPassword) {
+      setError('As senhas não coincidem')
+      return
+    }
+
+    if (password.length < 6) {
+      setError('A senha deve ter pelo menos 6 caracteres')
+      return
+    }
+
+    setIsLoading(true)
+    console.log('🎮 InvitePage - Executando signup')
+
+    try {
+      // Criar conta no Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: email,
+        password,
+        options: {
+          data: { name }
+        }
+      })
+
+      if (authError) throw authError
+      if (!authData.user) throw new Error('Erro ao criar usuário')
+
+      // Criar perfil do usuário
+      const { error: profileError } = await supabase
+        .from('users')
+        .insert({
+          id: authData.user.id,
+          email: email,
+          name,
+          invited_by: inviteData.invited_by
+        })
+
+      if (profileError) throw profileError
+
+      // Adicionar à campanha se especificada
+      if (inviteData.campaign_id) {
+        const { error: campaignPlayerError } = await supabase
+          .from('campaign_players')
+          .insert({
+            campaign_id: inviteData.campaign_id,
+            user_id: authData.user.id,
+            joined_at: new Date().toISOString(),
+            status: 'active'
+          })
+
+        if (campaignPlayerError) throw campaignPlayerError
+      }
+
+      // Marcar convite como usado
+      const { error: updateError } = await supabase
+        .from('invites')
+        .update({ used_at: new Date().toISOString() })
+        .eq('id', inviteData.id)
+
+      if (updateError) {
+        console.error('Erro ao marcar convite como usado:', updateError)
+      }
+
+      console.log('🎮 InvitePage - Signup concluído com sucesso')
+      setState('success')
+      
+      // Redirecionar após 2 segundos
+      setTimeout(() => {
+        router.push('/dashboard')
+      }, 2000)
+
+    } catch (err) {
+      console.error('🎮 InvitePage - Erro no signup:', err)
+      setError(err instanceof Error ? err.message : 'Erro ao criar conta')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Renderização baseada no estado
+  const renderContent = () => {
+    switch (state) {
+      case 'loading':
+        return (
+          <Card className="w-full max-w-sm z-10 bg-card/80">
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Verificando convite...</p>
+              </div>
+            </CardContent>
+          </Card>
+        )
+
+      case 'invalid':
+        return (
+          <Card className="w-full max-w-sm z-10 bg-card/80">
+            <CardHeader className="text-center">
+              <Swords className="h-10 w-10 text-destructive mx-auto mb-4" />
+              <CardTitle className="text-2xl font-serif">Convite Inválido</CardTitle>
+              <CardDescription>{error}</CardDescription>
+            </CardHeader>
+            <CardFooter>
+              <Button className="w-full" onClick={() => router.push('/login')}>
+                Ir para Login
+              </Button>
+            </CardFooter>
+          </Card>
+        )
+
+      case 'already-member':
+        return (
+          <Card className="w-full max-w-sm z-10 bg-card/80">
+            <CardHeader className="text-center">
+              <CheckCircle className="h-10 w-10 text-green-500 mx-auto mb-4" />
+              <CardTitle className="text-2xl font-serif">Já é membro!</CardTitle>
+              <CardDescription>
+                Você já faz parte desta campanha.
+              </CardDescription>
+            </CardHeader>
+            <CardFooter>
+              <Button className="w-full" onClick={() => router.push('/dashboard')}>
+                Ir para Dashboard
+              </Button>
+            </CardFooter>
+          </Card>
+        )
+
+      case 'auto-join':
+        return (
+          <Card className="w-full max-w-sm z-10 bg-card/80">
+            <CardHeader className="text-center">
+              <UserPlus className="h-10 w-10 text-primary mx-auto mb-4" />
+              <CardTitle className="text-2xl font-serif">Entrar na Campanha</CardTitle>
+              <CardDescription>
+                Você foi convidado para se juntar a uma campanha.
+                <br />
+                <span className="text-sm font-medium">Email: {inviteData?.email}</span>
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {error && <p className="text-sm text-destructive mb-4">{error}</p>}
+              <Button 
+                className="w-full" 
+                onClick={handleAutoJoin}
+                disabled={isLoading}
+              >
+                {isLoading ? "Entrando..." : "Entrar na Campanha"}
+              </Button>
+            </CardContent>
+          </Card>
+        )
+
+      case 'login':
+        return (
+          <Card className="w-full max-w-sm z-10 bg-card/80">
+            <CardHeader className="text-center">
+              <LogIn className="h-10 w-10 text-primary mx-auto mb-4" />
+              <CardTitle className="text-2xl font-serif">Fazer Login</CardTitle>
+              <CardDescription>
+                Você já tem uma conta. Faça login para aceitar o convite.
+                <br />
+                <span className="text-sm font-medium">Email: {email}</span>
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleLogin} className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="password">Senha</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Digite sua senha"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      disabled={isLoading}
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowPassword(!showPassword)}
+                      disabled={isLoading}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+                {error && <p className="text-sm text-destructive">{error}</p>}
+                <Button type="submit" className="w-full" disabled={isLoading || !password}>
+                  {isLoading ? "Fazendo login..." : "Fazer Login"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        )
+
+      case 'signup':
+        return (
+          <Card className="w-full max-w-sm z-10 bg-card/80">
+            <CardHeader className="text-center">
+              <UserPlus className="h-10 w-10 text-primary mx-auto mb-4" />
+              <CardTitle className="text-2xl font-serif">Criar Conta</CardTitle>
+              <CardDescription>
+                Você foi convidado para se juntar ao MesaRPG.
+                <br />
+                <span className="text-sm font-medium">Email: {email}</span>
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSignup} className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="name">Nome completo</Label>
+                  <Input
+                    id="name"
+                    type="text"
+                    placeholder="Seu nome"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="password">Senha</Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Mínimo 6 caracteres"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      disabled={isLoading}
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowPassword(!showPassword)}
+                      disabled={isLoading}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="confirmPassword">Confirmar senha</Label>
+                  <Input
+                    id="confirmPassword"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Digite a senha novamente"
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
+                {error && <p className="text-sm text-destructive">{error}</p>}
+                <Button 
+                  type="submit" 
+                  className="w-full" 
+                  disabled={isLoading || !name || !password || !confirmPassword}
+                >
+                  {isLoading ? "Criando conta..." : "Criar Conta"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        )
+
+      case 'success':
+        return (
+          <Card className="w-full max-w-sm z-10 bg-card/80">
+            <CardHeader className="text-center">
+              <CheckCircle className="h-10 w-10 text-green-500 mx-auto mb-4" />
+              <CardTitle className="text-2xl font-serif">Sucesso!</CardTitle>
+              <CardDescription>
+                Você foi adicionado à campanha com sucesso.
+                <br />
+                Redirecionando para o dashboard...
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              </div>
+            </CardContent>
+          </Card>
+        )
+
+      default:
+        return null
+    }
   }
 
   return (
-    <div
-      className="flex h-screen w-full items-center justify-center bg-cover bg-center"
-      style={{ backgroundImage: "url('/placeholder.svg?width=1920&height=1080')" }}
-    >
+    <div className="flex h-screen w-full items-center justify-center bg-gradient-to-br from-background to-muted">
       <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
-      <Card className="w-full max-w-sm z-10 bg-card/80">
-        <CardHeader className="text-center">
-          <div className="flex justify-center items-center mb-4">
-            <UserPlus className="h-10 w-10 text-primary" />
-          </div>
-          <CardTitle className="text-2xl font-serif">Bem-vindo ao MesaRPG!</CardTitle>
-          <CardDescription>
-            Você foi convidado para se juntar ao MesaRPG.
-            <br />
-            <span className="text-sm font-medium">Email: {inviteData.email}</span>
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleAcceptInvite} className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name">Nome completo</Label>
-              <Input
-                id="name"
-                type="text"
-                placeholder="Seu nome"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                disabled={isLoading}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="password">Senha</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Mínimo 6 caracteres"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={isLoading}
-                  className="pr-10"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                  disabled={isLoading}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="confirmPassword">Confirmar senha</Label>
-              <Input
-                id="confirmPassword"
-                type={showPassword ? "text" : "password"}
-                placeholder="Digite a senha novamente"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                disabled={isLoading}
-              />
-            </div>
-            {error && <p className="text-sm text-red-500">{error}</p>}
-            <Button 
-              type="submit" 
-              className="w-full" 
-              disabled={isLoading || !name || !password || !confirmPassword}
-            >
-              {isLoading ? "Criando conta..." : "Aceitar convite"}
-            </Button>
-          </form>
-        </CardContent>
-        <CardFooter className="text-center">
-          <p className="text-xs text-muted-foreground">
-            Ao aceitar o convite, você concorda com nossos termos de uso.
-          </p>
-        </CardFooter>
-      </Card>
+      {renderContent()}
     </div>
   )
 }
