@@ -17,8 +17,22 @@ CREATE TABLE public.users (
   role user_role DEFAULT 'player',
   sheet_data JSONB DEFAULT '[]',
   token_image TEXT,
+  invited_by UUID REFERENCES public.users(id),
+  campaigns_as_master INTEGER DEFAULT 0,
+  campaigns_as_player INTEGER DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Invites table for invitation system
+CREATE TABLE public.invites (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  email TEXT NOT NULL,
+  token TEXT UNIQUE NOT NULL,
+  invited_by UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  used_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Campaigns table
@@ -156,6 +170,7 @@ CREATE INDEX idx_fog_of_war_campaign_id ON public.fog_of_war(campaign_id);
 
 -- Enable Row Level Security (RLS)
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.invites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.campaigns ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.campaign_players ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.maps ENABLE ROW LEVEL SECURITY;
@@ -175,6 +190,22 @@ CREATE POLICY "Users can view their own profile" ON public.users
 
 CREATE POLICY "Users can update their own profile" ON public.users
   FOR UPDATE USING (auth.uid() = id);
+
+-- Invites policies
+CREATE POLICY "Users can view invites they sent" ON public.invites
+  FOR SELECT USING (auth.uid() = invited_by);
+
+CREATE POLICY "Users can create invites" ON public.invites
+  FOR INSERT WITH CHECK (auth.uid() = invited_by);
+
+CREATE POLICY "Users can update their own invites" ON public.invites
+  FOR UPDATE USING (auth.uid() = invited_by);
+
+CREATE POLICY "Public can view valid invites by token" ON public.invites
+  FOR SELECT USING (
+    expires_at > NOW() AND 
+    used_at IS NULL
+  );
 
 -- Campaigns policies
 CREATE POLICY "Users can view campaigns they participate in" ON public.campaigns

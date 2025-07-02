@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Inter, Lora } from "next/font/google" // Importar Lora
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import { AuthProvider } from "@/components/auth/AuthProvider"
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" }) // Adicionar variable
 const lora = Lora({ subsets: ["latin"], variable: "--font-lora" }) // Adicionar Lora
@@ -22,7 +23,9 @@ export default function RootLayout({
     <html lang="pt-BR" suppressHydrationWarning className={`${inter.variable} ${lora.variable}`}>
       <body className="font-sans">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
-          {children}
+          <AuthProvider>
+            {children}
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

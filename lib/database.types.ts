@@ -239,6 +239,44 @@ export type Database = {
           }
         ]
       }
+      invites: {
+        Row: {
+          created_at: string | null
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string
+          token: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          expires_at: string
+          id?: string
+          invited_by: string
+          token: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          token?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invites_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       maps: {
         Row: {
           background_url: string
@@ -408,9 +446,12 @@ export type Database = {
       }
       users: {
         Row: {
+          campaigns_as_master: number | null
+          campaigns_as_player: number | null
           created_at: string | null
           email: string
           id: string
+          invited_by: string | null
           name: string
           role: Database["public"]["Enums"]["user_role"] | null
           sheet_data: Json | null
@@ -418,9 +459,12 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          campaigns_as_master?: number | null
+          campaigns_as_player?: number | null
           created_at?: string | null
           email: string
           id: string
+          invited_by?: string | null
           name: string
           role?: Database["public"]["Enums"]["user_role"] | null
           sheet_data?: Json | null
@@ -428,9 +472,12 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          campaigns_as_master?: number | null
+          campaigns_as_player?: number | null
           created_at?: string | null
           email?: string
           id?: string
+          invited_by?: string | null
           name?: string
           role?: Database["public"]["Enums"]["user_role"] | null
           sheet_data?: Json | null

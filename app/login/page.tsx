@@ -1,28 +1,56 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useMesaStore } from "@/lib/store"
-import { Swords } from "lucide-react"
+import { useAuthContext } from "@/components/auth/AuthProvider"
+import { Swords, Eye, EyeOff } from "lucide-react"
+import Link from "next/link"
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("mestre@mesarpg.com")
-  const [password, setPassword] = useState("123")
-  const [error, setError] = useState("")
-  const login = useMesaStore((state) => state.login)
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [showResetPassword, setShowResetPassword] = useState(false)
+  const [resetEmail, setResetEmail] = useState("")
+  
+  const { signIn, resetPassword, error, loading } = useAuthContext()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  
+  const redirectTo = searchParams.get('redirectTo') || '/dashboard'
 
-  const handleLogin = () => {
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!email || !password) return
+
+    setIsLoading(true)
     try {
-      setError("")
-      login({ email, password })
-      router.push("/dashboard")
-    } catch (err: any) {
-      setError(err.message)
+      await signIn(email, password)
+      router.push(redirectTo)
+    } catch (err) {
+      // Error is handled by the auth context
+      console.error('Login error:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!resetEmail) return
+
+    try {
+      await resetPassword(resetEmail)
+      alert('Email de recuperação enviado! Verifique sua caixa de entrada.')
+      setShowResetPassword(false)
+      setResetEmail("")
+    } catch (err) {
+      console.error('Reset password error:', err)
     }
   }
 
@@ -45,33 +73,99 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="seu@email.com"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="password">Senha</Label>
-            <Input
-              id="password"
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-          {error && <p className="text-sm text-red-500">{error}</p>}
+          {!showResetPassword ? (
+            <form onSubmit={handleLogin} className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="seu@email.com"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={isLoading || loading}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="password">Senha</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={isLoading || loading}
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                    disabled={isLoading || loading}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+              {error && <p className="text-sm text-red-500">{error}</p>}
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={isLoading || loading || !email || !password}
+              >
+                {isLoading || loading ? "Entrando..." : "Entrar"}
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={handleResetPassword} className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="resetEmail">Email para recuperação</Label>
+                <Input
+                  id="resetEmail"
+                  type="email"
+                  placeholder="seu@email.com"
+                  required
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                  disabled={loading}
+                />
+              </div>
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={loading || !resetEmail}
+              >
+                {loading ? "Enviando..." : "Enviar Email de Recuperação"}
+              </Button>
+            </form>
+          )}
         </CardContent>
-        <CardFooter>
-          <Button className="w-full" onClick={handleLogin}>
-            Entrar
-          </Button>
+        <CardFooter className="flex flex-col gap-2">
+          {!showResetPassword ? (
+            <Button
+              variant="link"
+              className="text-sm"
+              onClick={() => setShowResetPassword(true)}
+            >
+              Esqueci minha senha
+            </Button>
+          ) : (
+            <Button
+              variant="link"
+              className="text-sm"
+              onClick={() => setShowResetPassword(false)}
+            >
+              Voltar ao login
+            </Button>
+          )}
         </CardFooter>
       </Card>
     </div>
