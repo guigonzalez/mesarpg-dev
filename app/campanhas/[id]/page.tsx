@@ -7,6 +7,7 @@ import { createClientComponentClient } from '@/lib/supabase-browser'
 import { useAuth } from '@/hooks/useAuth'
 import { Database } from '@/lib/database.types'
 import { Grid, type GridTool } from "@/components/rpg/grid"
+import { useMesaStore } from "@/lib/store"
 import { ArrowLeft, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { MasterSidebar } from "@/components/rpg/master-sidebar"
@@ -23,6 +24,7 @@ export default function CampaignPage() {
   const params = useParams()
   const campaignId = params.id as string
   const supabase = createClientComponentClient()
+  const setActiveCampaign = useMesaStore((state) => state.setActiveCampaign)
 
   console.log('CampaignPage - Params:', params)
   console.log('CampaignPage - Campaign ID:', campaignId)
@@ -128,6 +130,10 @@ export default function CampaignPage() {
 
       console.log('Acesso permitido:', { isMaster, hasAccess })
       setCampaign(campaignData)
+      
+      // Definir campanha ativa no store para a MasterSidebar
+      console.log('🏪 Definindo campanha ativa no store:', campaignData.id)
+      setActiveCampaign(campaignData)
 
     } catch (err) {
       console.error('Erro ao carregar campanha:', err)
