@@ -37,7 +37,7 @@ export default function DashboardPage() {
   const handleLogout = async () => {
     try {
       await signOut()
-      router.push("/login")
+      // O redirecionamento é feito automaticamente pelo hook useAuth
     } catch (error) {
       console.error('Logout error:', error)
     }

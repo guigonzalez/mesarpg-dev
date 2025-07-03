@@ -112,6 +112,12 @@ export function useAuth(): AuthState & AuthActions {
         }))
         throw error
       }
+
+      // Aguardar um pouco para garantir que a sessão foi estabelecida
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      // Forçar refresh da página para garantir que o estado seja atualizado
+      window.location.href = '/dashboard'
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro no login'
       setState(prev => ({ 
@@ -138,6 +144,12 @@ export function useAuth(): AuthState & AuthActions {
         }))
         throw error
       }
+
+      // Aguardar um pouco para garantir que o logout foi processado
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      // Forçar refresh da página para garantir que o estado seja limpo
+      window.location.href = '/login'
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro no logout'
       setState(prev => ({ 

@@ -31,7 +31,7 @@ function LoginContent() {
     setIsLoading(true)
     try {
       await signIn(email, password)
-      router.push(redirectTo)
+      // O redirecionamento é feito automaticamente pelo hook useAuth
     } catch (err) {
       // Error is handled by the auth context
       console.error('Login error:', err)
