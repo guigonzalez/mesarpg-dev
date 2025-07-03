@@ -44,17 +44,19 @@ export function ImageUpload({ value, onChange }: ImageUploadProps) {
   }
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full min-h-[128px]">
       <div className="w-full h-full border-2 border-dashed rounded-lg flex items-center justify-center relative bg-muted/50">
         {preview ? (
           <>
-            <Image
-              src={preview || "/placeholder.svg"}
-              alt="Preview"
-              layout="fill"
-              objectFit="contain"
-              className="rounded-lg p-2"
-            />
+            <div className="relative w-full h-full min-h-[128px]">
+              <Image
+                src={preview}
+                alt="Preview"
+                fill
+                style={{ objectFit: "contain" }}
+                className="rounded-lg p-2"
+              />
+            </div>
             <Button
               size="icon"
               variant="destructive"
@@ -67,10 +69,10 @@ export function ImageUpload({ value, onChange }: ImageUploadProps) {
         ) : (
           <label
             htmlFor="file-upload"
-            className="cursor-pointer flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-colors"
+            className="cursor-pointer flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-colors w-full h-full min-h-[128px]"
           >
             <UploadCloud className="h-8 w-8 mb-2" />
-            <span>Clique para enviar</span>
+            <span className="text-sm">Clique para enviar imagem</span>
             <Input id="file-upload" type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
           </label>
         )}
