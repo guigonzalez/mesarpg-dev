@@ -8,6 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PlusCircle, Trash2, Save, Eye, GripVertical } from "lucide-react"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
 import { Checkbox } from "@/components/ui/checkbox"
+import { DndContext, closestCenter, type DragEndEvent } from "@dnd-kit/core"
+import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
 
 // Tipos baseados no MVP original
 interface SheetField {
@@ -69,45 +72,43 @@ const mockSheets: { [key: string]: SheetTemplate } = {
   },
 }
 
-// Componente de item de campo (simplificado sem drag and drop por enquanto)
-function FieldItem({
+// Componente de item de campo com drag-and-drop
+function SortableFieldItem({
   field,
   onFieldChange,
   onRemove,
-  onMoveUp,
-  onMoveDown,
-  canMoveUp,
-  canMoveDown,
 }: {
   field: SheetField
   onFieldChange: (prop: "name" | "type", value: string) => void
   onRemove: () => void
-  onMoveUp: () => void
-  onMoveDown: () => void
-  canMoveUp: boolean
-  canMoveDown: boolean
 }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: field.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
   return (
-    <div className="flex items-center gap-2 p-2 bg-muted rounded-lg">
-      <div className="flex flex-col gap-1">
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={onMoveUp}
-          disabled={!canMoveUp}
-          className="h-6 w-6 p-0"
-        >
-          ↑
-        </Button>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={onMoveDown}
-          disabled={!canMoveDown}
-          className="h-6 w-6 p-0"
-        >
-          ↓
-        </Button>
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-2 p-2 bg-muted rounded-lg"
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted-foreground/10 rounded"
+      >
+        <GripVertical className="h-4 w-4 text-muted-foreground" />
       </div>
       <Input
         placeholder="Nome do Atributo"
@@ -248,22 +249,22 @@ export function SheetTemplateEditor({
     setFields(fields.filter((f) => f.id !== id))
   }
 
-  const moveField = (id: string, direction: 'up' | 'down') => {
-    const currentIndex = fields.findIndex(f => f.id === id)
-    if (currentIndex === -1) return
-
-    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
-    if (newIndex < 0 || newIndex >= fields.length) return
-
-    const newFields = [...fields]
-    const [movedField] = newFields.splice(currentIndex, 1)
-    newFields.splice(newIndex, 0, movedField)
-    setFields(newFields)
-  }
-
   const loadPreset = (system: string) => {
     if (mockSheets[system]) {
       setFields(mockSheets[system].fields.map((f, i) => ({ ...f, id: `preset-${system}-${i}` })))
+    }
+  }
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+
+    if (active.id !== over?.id) {
+      setFields((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id)
+        const newIndex = items.findIndex((item) => item.id === over?.id)
+
+        return arrayMove(items, oldIndex, newIndex)
+      })
     }
   }
 
@@ -292,7 +293,7 @@ export function SheetTemplateEditor({
           <CardHeader>
             <CardTitle>Editor de Template</CardTitle>
             <CardDescription>
-              Personalize e reordene os campos da ficha. Arraste a divisória para ver o preview.
+              Personalize e reordene os campos da ficha. Arraste os campos para reordenar.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 max-h-[60vh] overflow-y-auto pr-4">
@@ -314,20 +315,26 @@ export function SheetTemplateEditor({
 
             <div className="space-y-2">
               <h3 className="font-semibold">Campos da Ficha</h3>
-              <div className="space-y-2">
-                {fields.map((field, index) => (
-                  <FieldItem
-                    key={field.id}
-                    field={field}
-                    onFieldChange={(prop, value) => handleFieldChange(field.id, prop, value)}
-                    onRemove={() => removeField(field.id)}
-                    onMoveUp={() => moveField(field.id, 'up')}
-                    onMoveDown={() => moveField(field.id, 'down')}
-                    canMoveUp={index > 0}
-                    canMoveDown={index < fields.length - 1}
-                  />
-                ))}
-              </div>
+              <DndContext
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={fields.map(f => f.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-2">
+                    {fields.map((field) => (
+                      <SortableFieldItem
+                        key={field.id}
+                        field={field}
+                        onFieldChange={(prop, value) => handleFieldChange(field.id, prop, value)}
+                        onRemove={() => removeField(field.id)}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
             </div>
             <Button variant="outline" className="w-full bg-transparent" onClick={addField}>
               <PlusCircle className="mr-2 h-4 w-4" />

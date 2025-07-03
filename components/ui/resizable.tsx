@@ -1,71 +1,46 @@
 "use client"
 
 import * as React from "react"
+import * as ResizablePrimitive from "react-resizable-panels"
+import { GripVertical } from "lucide-react"
+
 import { cn } from "@/lib/utils"
 
-// Componente simplificado sem dependências externas
 const ResizablePanelGroup = ({
   className,
-  children,
-  direction = "horizontal",
   ...props
-}: {
-  className?: string
-  children: React.ReactNode
-  direction?: "horizontal" | "vertical"
-}) => (
-  <div
+}: React.ComponentProps<typeof ResizablePrimitive.PanelGroup>) => (
+  <ResizablePrimitive.PanelGroup
     className={cn(
-      "flex h-full w-full",
-      direction === "vertical" ? "flex-col" : "flex-row",
+      "flex h-full w-full data-[panel-group-direction=vertical]:flex-col",
       className
     )}
     {...props}
-  >
-    {children}
-  </div>
+  />
 )
 
-const ResizablePanel = ({
-  className,
-  children,
-  defaultSize = 50,
-  ...props
-}: {
-  className?: string
-  children: React.ReactNode
-  defaultSize?: number
-}) => (
-  <div
-    className={cn("flex-1", className)}
-    style={{ flexBasis: `${defaultSize}%` }}
-    {...props}
-  >
-    {children}
-  </div>
-)
+const ResizablePanel = ResizablePrimitive.Panel
 
 const ResizableHandle = ({
   withHandle,
   className,
   ...props
-}: {
+}: React.ComponentProps<typeof ResizablePrimitive.PanelResizeHandle> & {
   withHandle?: boolean
-  className?: string
 }) => (
-  <div
+  <ResizablePrimitive.PanelResizeHandle
     className={cn(
-      "relative flex w-1 items-center justify-center bg-border cursor-col-resize",
+      "relative flex w-px items-center justify-center bg-border after:absolute after:inset-y-0 after:left-1/2 after:w-1 after:-translate-x-1/2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 data-[panel-group-direction=vertical]:h-px data-[panel-group-direction=vertical]:w-full data-[panel-group-direction=vertical]:after:left-0 data-[panel-group-direction=vertical]:after:h-1 data-[panel-group-direction=vertical]:after:w-full data-[panel-group-direction=vertical]:after:-translate-y-1/2 data-[panel-group-direction=vertical]:after:translate-x-0 [&[data-panel-group-direction=vertical]>div]:rotate-90",
       className
     )}
     {...props}
   >
     {withHandle && (
       <div className="z-10 flex h-4 w-3 items-center justify-center rounded-sm border bg-border">
-        <div className="h-2.5 w-2.5 text-muted-foreground">⋮</div>
+        <GripVertical className="h-2.5 w-2.5" />
       </div>
     )}
-  </div>
+  </ResizablePrimitive.PanelResizeHandle>
 )
 
 export { ResizablePanelGroup, ResizablePanel, ResizableHandle }
