@@ -49,7 +49,7 @@ export default function CampaignSettingsPage() {
     }
 
     fetchCampaignData()
-  }, [user, router, campaignId, authLoading])
+  }, [campaignId, authLoading]) // Removido 'user' e 'router' das dependências para evitar refresh desnecessário
 
   const fetchCampaignData = async () => {
     try {
