@@ -11,14 +11,15 @@ import { Swords, Eye, EyeOff, UserPlus, LogIn, CheckCircle } from "lucide-react"
 import { createClientComponentClient } from '@/lib/supabase-browser'
 
 interface InvitePageProps {
-  params: {
+  params: Promise<{
     token: string
-  }
+  }>
 }
 
 type InviteState = 'loading' | 'invalid' | 'signup' | 'login' | 'auto-join' | 'success' | 'already-member'
 
 export default function InvitePage({ params }: InvitePageProps) {
+  const [token, setToken] = useState<string>("")
   const [state, setState] = useState<InviteState>('loading')
   const [inviteData, setInviteData] = useState<any>(null)
   const [error, setError] = useState("")
@@ -35,8 +36,19 @@ export default function InvitePage({ params }: InvitePageProps) {
   const router = useRouter()
   const supabase = createClientComponentClient()
 
+  // Resolver params Promise
+  useEffect(() => {
+    const resolveParams = async () => {
+      const resolvedParams = await params
+      setToken(resolvedParams.token)
+    }
+    resolveParams()
+  }, [params])
+
   // Verificar convite e determinar estado
   useEffect(() => {
+    if (!token) return
+
     const checkInviteAndUserState = async () => {
       console.log('🎮 InvitePage - Verificando convite e estado do usuário')
       
@@ -45,7 +57,7 @@ export default function InvitePage({ params }: InvitePageProps) {
         const { data: invites, error: inviteError } = await supabase
           .from('invites')
           .select('*')
-          .eq('token', params.token)
+          .eq('token', token)
 
         if (inviteError || !invites || invites.length === 0) {
           console.log('🎮 InvitePage - Convite não encontrado')
@@ -125,7 +137,7 @@ export default function InvitePage({ params }: InvitePageProps) {
     }
 
     checkInviteAndUserState()
-  }, [params.token, user, supabase])
+  }, [token, user, supabase])
 
   // Auto-join para usuário logado
   const handleAutoJoin = async () => {

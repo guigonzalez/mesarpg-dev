@@ -2,6 +2,7 @@
 
 import React from "react"
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import {
   MousePointer,
   Ruler,
@@ -15,6 +16,7 @@ import {
   PanelRightOpen,
   MessageSquare,
   FileText,
+  UserPlus,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
@@ -23,6 +25,7 @@ import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { Database } from '@/lib/database.types'
+import type { SheetTemplate } from '@/lib/database.types'
 
 type Campaign = Database['public']['Tables']['campaigns']['Row']
 type User = {
@@ -182,9 +185,87 @@ const SimpleHandoutPanel = () => (
   </div>
 )
 
+const CharacterCreationPanel = ({ 
+  campaign, 
+  user, 
+  isMaster 
+}: { 
+  campaign: Campaign
+  user: User
+  isMaster: boolean 
+}) => {
+  const router = useRouter()
+  
+  const handleCreateCharacter = () => {
+    // Verificar se a campanha tem template configurado
+    const template = campaign.sheet_template as SheetTemplate | null
+    if (!template || !template.fields?.length) {
+      alert('Template de ficha não configurado. Configure o template nas configurações da campanha primeiro.')
+      router.push(`/campanhas/${campaign.id}/settings`)
+      return
+    }
+    
+    // Redirecionar para página de criação de personagem
+    router.push(`/campanhas/${campaign.id}/personagem/novo`)
+  }
+  
+  const handleEditCharacter = () => {
+    // TODO: Buscar ID do personagem existente e redirecionar para edição
+    router.push(`/campanhas/${campaign.id}/personagem`)
+  }
+  
+  return (
+    <div className="p-4 space-y-4">
+      <div className="text-center">
+        <UserPlus className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
+        <h3 className="font-semibold mb-2">
+          {isMaster ? 'Gerenciar Personagens' : 'Meu Personagem'}
+        </h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          {isMaster 
+            ? 'Crie personagens para NPCs ou gerencie fichas dos jogadores'
+            : 'Crie e edite a ficha do seu personagem para esta campanha'
+          }
+        </p>
+      </div>
+      
+      <div className="space-y-2">
+        <Button 
+          onClick={handleCreateCharacter}
+          className="w-full"
+          variant="default"
+        >
+          <UserPlus className="h-4 w-4 mr-2" />
+          {isMaster ? 'Criar Personagem' : 'Criar Meu Personagem'}
+        </Button>
+        
+        {!isMaster && (
+          <Button 
+            onClick={handleEditCharacter}
+            className="w-full"
+            variant="outline"
+          >
+            <User className="h-4 w-4 mr-2" />
+            Ver Minha Ficha
+          </Button>
+        )}
+      </div>
+      
+      <div className="text-xs text-muted-foreground text-center">
+        {(() => {
+          const template = campaign.sheet_template as SheetTemplate | null
+          return template?.fields?.length 
+            ? `Template: ${template.fields.length} campos`
+            : 'Template não configurado'
+        })()}
+      </div>
+    </div>
+  )
+}
+
 // --- Componente Principal ---
 
-type PanelView = "chat" | "mark" | "draw" | "npcs" | "player" | "handouts"
+type PanelView = "chat" | "mark" | "draw" | "npcs" | "player" | "handouts" | "character"
 
 interface ActionSidebarProps {
   campaign: Campaign
@@ -245,6 +326,7 @@ export function ActionSidebar({
     npcs: { title: "Criaturas", component: () => <SimpleNpcListPanel npcs={npcs} /> },
     player: { title: "Seu Personagem", component: () => <SimplePlayerTokenPanel user={user} tokens={tokens} isMaster={isMaster} /> },
     handouts: { title: "Utilitários", component: SimpleHandoutPanel },
+    character: { title: "Personagens", component: () => <CharacterCreationPanel campaign={campaign} user={user} isMaster={isMaster} /> },
   }
 
   const ActiveComponent = activeView ? views[activeView].component : null
@@ -252,6 +334,7 @@ export function ActionSidebar({
 
   const actionIcons = [
     { tool: "move", view: "chat", icon: MessageSquare, label: "Chat" },
+    { tool: "move", view: "character", icon: UserPlus, label: "Criar Personagem" },
     { tool: "move", view: "handouts", icon: FileText, label: "Utilitários", playerOnly: true }, // Ícone para jogadores
     { tool: "move", view: null, icon: MousePointer, label: "Mover / Selecionar", separator: true },
     { tool: "measure", view: null, icon: Ruler, label: "Medir Distância" },

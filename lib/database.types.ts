@@ -48,6 +48,57 @@ export type Database = {
           }
         ]
       }
+      character_sheets: {
+        Row: {
+          campaign_id: string
+          character_name: string
+          created_at: string | null
+          id: string
+          player_id: string
+          sheet_data: Json
+          status: Database["public"]["Enums"]["character_sheet_status"]
+          template_version: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          campaign_id: string
+          character_name: string
+          created_at?: string | null
+          id?: string
+          player_id: string
+          sheet_data: Json
+          status?: Database["public"]["Enums"]["character_sheet_status"]
+          template_version?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          character_name?: string
+          created_at?: string | null
+          id?: string
+          player_id?: string
+          sheet_data?: Json
+          status?: Database["public"]["Enums"]["character_sheet_status"]
+          template_version?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "character_sheets_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "character_sheets_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       campaigns: {
         Row: {
           active_map_id: string | null
@@ -507,7 +558,8 @@ export type Database = {
     Enums: {
       campaign_status: "active" | "archived" | "deleted"
       campaign_system: "D&D 5e" | "Vampiro: A Máscara" | "Livre"
-      field_type: "text" | "number" | "boolean" | "textarea" | "image"
+      character_sheet_status: "draft" | "submitted" | "approved" | "rejected"
+      field_type: "text" | "number" | "boolean" | "textarea" | "image" | "select"
       handout_type: "text" | "image" | "pdf"
       message_type: "player" | "master" | "system" | "dice"
       token_type: "player" | "npc"
@@ -571,18 +623,60 @@ export type DrawnLine = Database['public']['Tables']['drawing_lines']['Row'] & {
 export interface SheetField {
   id: string
   name: string
-  type: "text" | "number" | "boolean" | "textarea" | "image"
+  type: "text" | "number" | "boolean" | "textarea" | "image" | "select"
   value: string | number | boolean
-  required?: boolean
+  required: boolean
+  validation?: {
+    min?: number
+    max?: number
+    options?: string[] // Para campos select
+    pattern?: string // Regex para validação
+  }
+  metadata?: {
+    isPreset: boolean // Se é campo do sistema ou customizado
+    category?: string // Agrupamento (ex: "Atributos", "Habilidades")
+    order: number // Ordem de exibição
+  }
 }
 
 export interface SheetTemplate {
+  id?: string
   name: string
+  version: number
   fields: SheetField[]
+  metadata: {
+    system: string
+    createdAt: string
+    updatedAt: string
+    createdBy?: string
+  }
 }
 
 export interface SheetCollection {
   [systemName: string]: SheetTemplate
+}
+
+// Types for Character Sheets (Player filled sheets)
+export interface CharacterSheetData {
+  templateVersion: number
+  fields: CharacterFieldValue[]
+}
+
+export interface CharacterFieldValue {
+  id: string // Corresponds to SheetField.id from template
+  value: string | number | boolean
+}
+
+export type CharacterSheet = Database['public']['Tables']['character_sheets']['Row'] & {
+  sheetData: CharacterSheetData
+  player: User
+  campaign: Campaign
+}
+
+export interface CharacterSheetValidationResult {
+  isValid: boolean
+  missingRequiredFields: string[]
+  invalidFields: { fieldId: string; reason: string }[]
 }
 
 // Helper types for Supabase operations

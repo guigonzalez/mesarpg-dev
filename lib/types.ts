@@ -12,7 +12,7 @@ export interface Token {
   ownerId: string // Pode ser um userId ou npcId
   type: "player" | "npc" // Novo campo para diferenciar o tipo de token
   name: string
-  image: string
+  image: string | undefined
   position: { x: number; y: number }
 }
 
@@ -95,4 +95,18 @@ export interface SheetTemplate {
 
 export interface SheetCollection {
   [systemName: string]: SheetTemplate
+}
+
+export interface PlayerManagementProps {
+  campaignId: string
+  campaign: Campaign
+  onPlayerAdded?: () => void
+  onPlayerRemoved?: () => void
+}
+
+export interface SheetViewerProps {
+  fields: SheetField[]
+  campaign: Campaign
+  onFieldChange?: (fieldId: string, value: any) => void
+  readOnly?: boolean
 }

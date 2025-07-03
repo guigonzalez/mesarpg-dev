@@ -16,14 +16,33 @@ import { CSS } from "@dnd-kit/utilities"
 interface SheetField {
   id: string
   name: string
-  type: "text" | "number" | "boolean" | "textarea" | "image"
+  type: "text" | "number" | "boolean" | "textarea" | "image" | "select"
   value: string | number | boolean
-  required?: boolean
+  required: boolean
+  validation?: {
+    min?: number
+    max?: number
+    options?: string[] // Para campos select
+    pattern?: string // Regex para validação
+  }
+  metadata?: {
+    isPreset: boolean // Se é campo do sistema ou customizado
+    category?: string // Agrupamento (ex: "Atributos", "Habilidades")
+    order: number // Ordem de exibição
+  }
 }
 
 interface SheetTemplate {
+  id?: string
   name: string
+  version: number
   fields: SheetField[]
+  metadata: {
+    system: string
+    createdAt: string
+    updatedAt: string
+    createdBy?: string
+  }
 }
 
 interface Campaign {
@@ -37,38 +56,56 @@ interface Campaign {
 const mockSheets: { [key: string]: SheetTemplate } = {
   "D&D 5e": {
     name: "Ficha de Dungeons & Dragons 5e",
+    version: 1,
     fields: [
-      { id: "dnd1", name: "Nome do Personagem", type: "text", value: "", required: true },
-      { id: "dnd_img", name: "Avatar", type: "image", value: "" },
-      { id: "dnd2", name: "Classe & Nível", type: "text", value: "", required: true },
-      { id: "dnd3", name: "Força", type: "number", value: 10 },
-      { id: "dnd4", name: "Destreza", type: "number", value: 10 },
-      { id: "dnd5", name: "Constituição", type: "number", value: 10 },
-      { id: "dnd6", name: "Inteligência", type: "number", value: 10 },
-      { id: "dnd7", name: "Sabedoria", type: "number", value: 10 },
-      { id: "dnd8", name: "Carisma", type: "number", value: 10 },
-      { id: "dnd9", name: "Inspirado", type: "boolean", value: false },
+      { id: "dnd1", name: "Nome do Personagem", type: "text", value: "", required: true, metadata: { isPreset: true, category: "Básico", order: 1 } },
+      { id: "dnd_img", name: "Avatar", type: "image", value: "", required: false, metadata: { isPreset: true, category: "Básico", order: 2 } },
+      { id: "dnd2", name: "Classe & Nível", type: "text", value: "", required: true, metadata: { isPreset: true, category: "Básico", order: 3 } },
+      { id: "dnd3", name: "Força", type: "number", value: 10, required: false, metadata: { isPreset: true, category: "Atributos", order: 4 } },
+      { id: "dnd4", name: "Destreza", type: "number", value: 10, required: false, metadata: { isPreset: true, category: "Atributos", order: 5 } },
+      { id: "dnd5", name: "Constituição", type: "number", value: 10, required: false, metadata: { isPreset: true, category: "Atributos", order: 6 } },
+      { id: "dnd6", name: "Inteligência", type: "number", value: 10, required: false, metadata: { isPreset: true, category: "Atributos", order: 7 } },
+      { id: "dnd7", name: "Sabedoria", type: "number", value: 10, required: false, metadata: { isPreset: true, category: "Atributos", order: 8 } },
+      { id: "dnd8", name: "Carisma", type: "number", value: 10, required: false, metadata: { isPreset: true, category: "Atributos", order: 9 } },
+      { id: "dnd9", name: "Inspirado", type: "boolean", value: false, required: false, metadata: { isPreset: true, category: "Estado", order: 10 } },
     ],
+    metadata: {
+      system: "D&D 5e",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
   },
   "Vampiro: A Máscara": {
     name: "Ficha de Vampiro: A Máscara",
+    version: 1,
     fields: [
-      { id: "vtm1", name: "Nome", type: "text", value: "", required: true },
-      { id: "vtm_img", name: "Retrato", type: "image", value: "" },
-      { id: "vtm2", name: "Clã", type: "text", value: "", required: true },
-      { id: "vtm3", name: "Geração", type: "number", value: 13 },
-      { id: "vtm4", name: "Força de Vontade", type: "number", value: 5 },
-      { id: "vtm5", name: "Humanidade", type: "number", value: 7 },
-      { id: "vtm6", name: "Frenesi", type: "boolean", value: false },
+      { id: "vtm1", name: "Nome", type: "text", value: "", required: true, metadata: { isPreset: true, category: "Básico", order: 1 } },
+      { id: "vtm_img", name: "Retrato", type: "image", value: "", required: false, metadata: { isPreset: true, category: "Básico", order: 2 } },
+      { id: "vtm2", name: "Clã", type: "text", value: "", required: true, metadata: { isPreset: true, category: "Básico", order: 3 } },
+      { id: "vtm3", name: "Geração", type: "number", value: 13, required: false, metadata: { isPreset: true, category: "Vampírico", order: 4 } },
+      { id: "vtm4", name: "Força de Vontade", type: "number", value: 5, required: false, metadata: { isPreset: true, category: "Atributos", order: 5 } },
+      { id: "vtm5", name: "Humanidade", type: "number", value: 7, required: false, metadata: { isPreset: true, category: "Atributos", order: 6 } },
+      { id: "vtm6", name: "Frenesi", type: "boolean", value: false, required: false, metadata: { isPreset: true, category: "Estado", order: 7 } },
     ],
+    metadata: {
+      system: "Vampiro: A Máscara",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
   },
   Livre: {
     name: "Ficha Livre",
+    version: 1,
     fields: [
-      { id: "free1", name: "Nome", type: "text", value: "", required: true },
-      { id: "free_img", name: "Imagem", type: "image", value: "" },
-      { id: "free2", name: "Conceito", type: "text", value: "" },
+      { id: "free1", name: "Nome", type: "text", value: "", required: true, metadata: { isPreset: true, category: "Básico", order: 1 } },
+      { id: "free_img", name: "Imagem", type: "image", value: "", required: false, metadata: { isPreset: true, category: "Básico", order: 2 } },
+      { id: "free2", name: "Conceito", type: "text", value: "", required: false, metadata: { isPreset: true, category: "Básico", order: 3 } },
     ],
+    metadata: {
+      system: "Livre",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
   },
 }
 
@@ -76,10 +113,12 @@ const mockSheets: { [key: string]: SheetTemplate } = {
 function SortableFieldItem({
   field,
   onFieldChange,
+  onRequiredChange,
   onRemove,
 }: {
   field: SheetField
   onFieldChange: (prop: "name" | "type", value: string) => void
+  onRequiredChange: (required: boolean) => void
   onRemove: () => void
 }) {
   const {
@@ -97,40 +136,73 @@ function SortableFieldItem({
     opacity: isDragging ? 0.5 : 1,
   }
 
+  const isPresetField = field.metadata?.isPreset ?? false
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-2 p-2 bg-muted rounded-lg"
+      className="flex flex-col gap-2 p-3 bg-muted rounded-lg"
     >
-      <div
-        {...attributes}
-        {...listeners}
-        className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted-foreground/10 rounded"
-      >
-        <GripVertical className="h-4 w-4 text-muted-foreground" />
+      <div className="flex items-center gap-2">
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted-foreground/10 rounded"
+        >
+          <GripVertical className="h-4 w-4 text-muted-foreground" />
+        </div>
+        <Input
+          placeholder="Nome do Atributo"
+          value={field.name}
+          onChange={(e) => onFieldChange("name", e.target.value)}
+          className="flex-1"
+        />
+        <Select value={field.type} onValueChange={(value: any) => onFieldChange("type", value)}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="text">Texto Curto</SelectItem>
+            <SelectItem value="textarea">Texto Longo</SelectItem>
+            <SelectItem value="number">Número</SelectItem>
+            <SelectItem value="boolean">Sim/Não</SelectItem>
+            <SelectItem value="select">Lista de Opções</SelectItem>
+            <SelectItem value="image">Imagem (Upload)</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button size="icon" variant="destructive" onClick={onRemove}>
+          <Trash2 className="h-4 w-4" />
+        </Button>
       </div>
-      <Input
-        placeholder="Nome do Atributo"
-        value={field.name}
-        onChange={(e) => onFieldChange("name", e.target.value)}
-        className="flex-1"
-      />
-      <Select value={field.type} onValueChange={(value: any) => onFieldChange("type", value)}>
-        <SelectTrigger className="w-[140px]">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="text">Texto Curto</SelectItem>
-          <SelectItem value="textarea">Texto Longo</SelectItem>
-          <SelectItem value="number">Número</SelectItem>
-          <SelectItem value="boolean">Sim/Não</SelectItem>
-          <SelectItem value="image">Imagem (Upload)</SelectItem>
-        </SelectContent>
-      </Select>
-      <Button size="icon" variant="destructive" onClick={onRemove}>
-        <Trash2 className="h-4 w-4" />
-      </Button>
+      
+      <div className="flex items-center gap-4 ml-8">
+        <div className="flex items-center space-x-2">
+          <Checkbox 
+            id={`required-${field.id}`}
+            checked={field.required}
+            onCheckedChange={onRequiredChange}
+          />
+          <label
+            htmlFor={`required-${field.id}`}
+            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+          >
+            Campo obrigatório
+          </label>
+        </div>
+        
+        {isPresetField && (
+          <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
+            Preset do Sistema
+          </span>
+        )}
+        
+        {field.metadata?.category && (
+          <span className="text-xs text-muted-foreground">
+            {field.metadata.category}
+          </span>
+        )}
+      </div>
     </div>
   )
 }
@@ -185,7 +257,10 @@ function SheetPreview({ fields }: { fields: SheetField[] }) {
             const field = groupOrField
             return (
               <div key={field.id} className="grid gap-1.5">
-                <label className="text-sm font-medium">{field.name || "Novo Campo"}</label>
+                <label className="text-sm font-medium">
+                  {field.name || "Novo Campo"}
+                  {field.required && <span className="text-red-500 ml-1">*</span>}
+                </label>
                 {field.type === "textarea" ? (
                   <div className="text-sm p-3 h-24 rounded-md border bg-muted/50">...</div>
                 ) : field.type === "image" ? (
@@ -201,6 +276,11 @@ function SheetPreview({ fields }: { fields: SheetField[] }) {
                     >
                       Opção Sim/Não
                     </label>
+                  </div>
+                ) : field.type === "select" ? (
+                  <div className="text-sm p-3 rounded-md border bg-muted/50 flex items-center justify-between text-muted-foreground">
+                    <span>Selecione uma opção...</span>
+                    <span>▼</span>
                   </div>
                 ) : (
                   <div className="text-sm p-3 rounded-md border bg-muted/50">...</div>
@@ -240,9 +320,25 @@ export function SheetTemplateEditor({
     setFields((currentFields) => currentFields.map((f) => (f.id === id ? { ...f, [prop]: value, value: "" } : f)))
   }
 
+  const handleRequiredChange = (id: string, required: boolean) => {
+    setFields((currentFields) => currentFields.map((f) => (f.id === id ? { ...f, required } : f)))
+  }
+
   const addField = () => {
     const newId = `field-${Date.now()}`
-    setFields([...fields, { id: newId, name: "Novo Atributo", type: "text", value: "" }])
+    const newField: SheetField = {
+      id: newId,
+      name: "Novo Atributo",
+      type: "text",
+      value: "",
+      required: false,
+      metadata: {
+        isPreset: false,
+        category: "Customizado",
+        order: fields.length + 1
+      }
+    }
+    setFields([...fields, newField])
   }
 
   const removeField = (id: string) => {
@@ -271,16 +367,51 @@ export function SheetTemplateEditor({
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      // Remove o ID temporário do frontend antes de salvar
-      const fieldsToSave = fields.map(({ id, ...rest }) => rest) as Omit<SheetField, "id">[]
+      // Validação básica
+      if (fields.length === 0) {
+        throw new Error('Template deve ter pelo menos um campo')
+      }
+
+      // Verificar se há pelo menos um campo obrigatório
+      const hasRequiredField = fields.some(field => field.required)
+      if (!hasRequiredField) {
+        console.warn('Template não possui campos obrigatórios')
+      }
+
+      // Verificar nomes duplicados
+      const fieldNames = fields.map(f => f.name.trim().toLowerCase())
+      const duplicateNames = fieldNames.filter((name, index) => fieldNames.indexOf(name) !== index)
+      if (duplicateNames.length > 0) {
+        throw new Error(`Campos com nomes duplicados encontrados: ${duplicateNames.join(', ')}`)
+      }
+
+      // Preservar IDs únicos dos campos para permitir edição posterior
+      const fieldsWithUniqueIds = fields.map((field, index) => ({
+        ...field,
+        id: field.id || `field-${Date.now()}-${index}`,
+        metadata: {
+          isPreset: field.metadata?.isPreset ?? false,
+          category: field.metadata?.category ?? "Customizado",
+          order: index + 1
+        }
+      }))
+
+      const currentTime = new Date().toISOString()
       const template: SheetTemplate = {
         name: `Template ${campaign.system}`,
-        fields: fieldsToSave.map((f) => ({ ...f, id: "" }))
+        version: 1,
+        fields: fieldsWithUniqueIds,
+        metadata: {
+          system: campaign.system,
+          createdAt: currentTime,
+          updatedAt: currentTime
+        }
       }
       
       await onSave(template)
     } catch (error) {
       console.error('Erro ao salvar template:', error)
+      throw error // Re-throw para que o componente pai possa tratar
     } finally {
       setIsSaving(false)
     }
@@ -329,6 +460,7 @@ export function SheetTemplateEditor({
                         key={field.id}
                         field={field}
                         onFieldChange={(prop, value) => handleFieldChange(field.id, prop, value)}
+                        onRequiredChange={(required) => handleRequiredChange(field.id, required)}
                         onRemove={() => removeField(field.id)}
                       />
                     ))}

@@ -18,6 +18,7 @@ interface AuthActions {
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
   resetPassword: (email: string) => Promise<void>
+  acceptInvite: (token: string, password: string, name: string) => Promise<void>
   sendInvite: (email: string) => Promise<void>
   canCreateCampaign: () => boolean
   updateUserRole: () => Promise<void>
@@ -191,6 +192,78 @@ export function useAuth(): AuthState & AuthActions {
     }
   }, [supabase.auth])
 
+  // Função para aceitar convite
+  const acceptInvite = useCallback(async (token: string, password: string, name: string) => {
+    setState(prev => ({ ...prev, loading: true, error: null }))
+
+    try {
+      // Verificar se o convite existe e é válido
+      const { data: invite, error: inviteError } = await supabase
+        .from('invites')
+        .select('*')
+        .eq('token', token)
+        .eq('used_at', null)
+        .gt('expires_at', new Date().toISOString())
+        .single()
+
+      if (inviteError || !invite) {
+        throw new Error('Convite inválido ou expirado')
+      }
+
+      // Criar conta do usuário
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email: invite.email,
+        password,
+        options: {
+          data: {
+            name
+          }
+        }
+      })
+
+      if (signUpError) {
+        throw signUpError
+      }
+
+      if (!authData.user) {
+        throw new Error('Erro ao criar usuário')
+      }
+
+      // Criar perfil do usuário
+      const { error: profileError } = await supabase
+        .from('users')
+        .insert({
+          id: authData.user.id,
+          email: invite.email,
+          name,
+          role: 'player'
+        })
+
+      if (profileError) {
+        throw profileError
+      }
+
+      // Marcar convite como usado
+      const { error: updateInviteError } = await supabase
+        .from('invites')
+        .update({ used_at: new Date().toISOString() })
+        .eq('id', invite.id)
+
+      if (updateInviteError) {
+        console.error('Erro ao marcar convite como usado:', updateInviteError)
+      }
+
+      setState(prev => ({ ...prev, loading: false }))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro ao aceitar convite'
+      setState(prev => ({ 
+        ...prev, 
+        loading: false, 
+        error: message 
+      }))
+      throw error
+    }
+  }, [supabase])
 
   // Função para enviar convite
   const sendInvite = useCallback(async (email: string) => {
@@ -329,6 +402,7 @@ export function useAuth(): AuthState & AuthActions {
     signIn,
     signOut,
     resetPassword,
+    acceptInvite,
     sendInvite,
     canCreateCampaign,
     updateUserRole,
