@@ -17,8 +17,17 @@ export default function NewCharacterPage() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const params = useParams()
-  const campaignId = params.id as string
+  const [campaignId, setCampaignId] = useState<string>("")
   const supabase = createClientComponentClient()
+
+  // Resolver params Promise
+  useEffect(() => {
+    const resolveParams = async () => {
+      const resolvedParams = await params
+      setCampaignId(resolvedParams.id as string)
+    }
+    resolveParams()
+  }, [params])
 
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [loading, setLoading] = useState(true)

@@ -16,9 +16,19 @@ export default function EditCharacterPage() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const params = useParams()
-  const campaignId = params.id as string
-  const characterId = params.characterId as string
+  const [campaignId, setCampaignId] = useState<string>("")
+  const [characterId, setCharacterId] = useState<string>("")
   const supabase = createClientComponentClient()
+
+  // Resolver params Promise
+  useEffect(() => {
+    const resolveParams = async () => {
+      const resolvedParams = await params
+      setCampaignId(resolvedParams.id as string)
+      setCharacterId(resolvedParams.characterId as string)
+    }
+    resolveParams()
+  }, [params])
 
   const [campaign, setCampaign] = useState<Campaign | null>(null)
   const [character, setCharacter] = useState<CharacterSheet | null>(null)
