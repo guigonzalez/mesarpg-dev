@@ -186,7 +186,7 @@ export default function NewCharacterPage() {
       <div className="border-b bg-background">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
-            <Link href={`/campanhas/${campaignId}/personagem`}>
+            <Link href={`/campanhas/${campaignId}`}>
               <Button variant="outline" size="icon">
                 <ArrowLeft className="h-4 w-4" />
               </Button>

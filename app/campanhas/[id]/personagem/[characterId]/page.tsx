@@ -187,8 +187,8 @@ export default function EditCharacterPage() {
         <div className="text-center">
           <p className="text-red-500 mb-4">{error}</p>
           <div className="space-x-2">
-            <Button onClick={() => router.push(`/campanhas/${campaignId}/personagem`)} variant="outline">
-              Voltar aos Personagens
+            <Button onClick={() => router.push(`/campanhas/${campaignId}`)} variant="outline">
+              Voltar à Campanha
             </Button>
             {error.includes('Template') && (
               <Button onClick={() => router.push(`/campanhas/${campaignId}/settings`)}>
@@ -214,7 +214,7 @@ export default function EditCharacterPage() {
       <div className="border-b bg-background">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
-            <Link href={`/campanhas/${campaignId}/personagem`}>
+            <Link href={`/campanhas/${campaignId}`}>
               <Button variant="outline" size="icon">
                 <ArrowLeft className="h-4 w-4" />
               </Button>
@@ -224,18 +224,7 @@ export default function EditCharacterPage() {
                 Editar: {character.character_name}
               </h1>
               <p className="text-muted-foreground">
-                {campaign.name} • {template.name} • 
-                <span className={`ml-2 px-2 py-1 rounded-full text-xs ${
-                  character.status === 'approved' ? 'bg-green-100 text-green-800' :
-                  character.status === 'submitted' ? 'bg-yellow-100 text-yellow-800' :
-                  character.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                  'bg-gray-100 text-gray-800'
-                }`}>
-                  {character.status === 'approved' ? 'Aprovado' :
-                   character.status === 'submitted' ? 'Enviado' :
-                   character.status === 'rejected' ? 'Rejeitado' :
-                   'Rascunho'}
-                </span>
+                {campaign.name} • {template.name}
               </p>
             </div>
           </div>
