@@ -8,9 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Separator } from "@/components/ui/separator"
 import { Eye, Edit, UserPlus, Users, User } from "lucide-react"
 
 type Campaign = Database['public']['Tables']['campaigns']['Row']
@@ -57,7 +55,7 @@ export function CharacterListPanel({ campaign, currentUser, isMaster }: Characte
       setMyCharacters(myChars || [])
 
       // Buscar todos os personagens da campanha (para visualização)
-      let allCharsQuery = supabase
+      const { data: allChars, error: allCharsError } = await supabase
         .from('character_sheets')
         .select(`
           *,
@@ -68,13 +66,6 @@ export function CharacterListPanel({ campaign, currentUser, isMaster }: Characte
           )
         `)
         .eq('campaign_id', campaign.id)
-
-      // Se for mestre, mostra todos os personagens. Se for jogador, apenas aprovados/enviados
-      if (!isMaster) {
-        allCharsQuery = allCharsQuery.in('status', ['approved', 'submitted'])
-      }
-
-      const { data: allChars, error: allCharsError } = await allCharsQuery
         .order('created_at', { ascending: false })
 
       if (allCharsError) throw allCharsError
@@ -101,22 +92,6 @@ export function CharacterListPanel({ campaign, currentUser, isMaster }: Characte
     router.push(`/campanhas/${campaign.id}/personagem/${characterId}`)
   }
 
-  const getStatusBadge = (status: string) => {
-    const statusMap = {
-      'draft': { label: 'Rascunho', variant: 'secondary' as const },
-      'submitted': { label: 'Enviado', variant: 'default' as const },
-      'approved': { label: 'Aprovado', variant: 'default' as const },
-      'rejected': { label: 'Rejeitado', variant: 'destructive' as const }
-    }
-    
-    const statusInfo = statusMap[status as keyof typeof statusMap] || statusMap.draft
-    return (
-      <Badge variant={statusInfo.variant} className="text-xs">
-        {statusInfo.label}
-      </Badge>
-    )
-  }
-
   const CharacterCard = ({ 
     character, 
     isOwner = false, 
@@ -128,24 +103,21 @@ export function CharacterListPanel({ campaign, currentUser, isMaster }: Characte
   }) => (
     <Card className="mb-3">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Avatar className="h-10 w-10">
-              <AvatarImage src={character.character_name} />
-              <AvatarFallback>
-                {character.character_name.charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <CardTitle className="text-base">{character.character_name}</CardTitle>
-              {showPlayer && character.player && (
-                <CardDescription className="text-sm">
-                  Jogador: {character.player.name}
-                </CardDescription>
-              )}
-            </div>
+        <div className="flex items-center gap-3">
+          <Avatar className="h-10 w-10">
+            <AvatarImage src={character.character_name} />
+            <AvatarFallback>
+              {character.character_name.charAt(0).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1">
+            <CardTitle className="text-base">{character.character_name}</CardTitle>
+            {showPlayer && character.player && (
+              <CardDescription className="text-sm">
+                Jogador: {character.player.name}
+              </CardDescription>
+            )}
           </div>
-          {getStatusBadge(character.status || 'draft')}
         </div>
       </CardHeader>
       <CardContent className="pt-0">
