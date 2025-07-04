@@ -26,14 +26,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { Database } from '@/lib/database.types'
 import type { SheetTemplate } from '@/lib/database.types'
+import { CharacterListPanel } from './character-list-panel'
 
 type Campaign = Database['public']['Tables']['campaigns']['Row']
-type User = {
-  id: string
-  name: string
-  email: string
-  tokenImage?: string
-}
+type User = Database['public']['Tables']['users']['Row']
 
 type Token = {
   id: string
@@ -164,7 +160,7 @@ const SimplePlayerTokenPanel = ({
         className="flex items-center gap-3 p-2 rounded-md bg-muted hover:bg-accent cursor-grab active:cursor-grabbing"
       >
         <Avatar className="h-8 w-8">
-          <AvatarImage src={user.tokenImage || "/placeholder.svg"} alt={user.name} />
+          <AvatarImage src={user.token_image || "/placeholder.svg"} alt={user.name} />
           <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
         </Avatar>
         <span className="text-sm font-medium">{user.name}</span>
@@ -326,7 +322,7 @@ export function ActionSidebar({
     npcs: { title: "Criaturas", component: () => <SimpleNpcListPanel npcs={npcs} /> },
     player: { title: "Seu Personagem", component: () => <SimplePlayerTokenPanel user={user} tokens={tokens} isMaster={isMaster} /> },
     handouts: { title: "Utilitários", component: SimpleHandoutPanel },
-    character: { title: "Personagens", component: () => <CharacterCreationPanel campaign={campaign} user={user} isMaster={isMaster} /> },
+    character: { title: "Personagens", component: () => <CharacterListPanel campaign={campaign} currentUser={user} isMaster={isMaster} /> },
   }
 
   const ActiveComponent = activeView ? views[activeView].component : null
