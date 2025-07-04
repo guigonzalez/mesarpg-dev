@@ -57,7 +57,7 @@ export function CharacterListPanel({ campaign, currentUser, isMaster }: Characte
       setMyCharacters(myChars || [])
 
       // Buscar todos os personagens da campanha (para visualização)
-      const { data: allChars, error: allCharsError } = await supabase
+      let allCharsQuery = supabase
         .from('character_sheets')
         .select(`
           *,
@@ -68,7 +68,13 @@ export function CharacterListPanel({ campaign, currentUser, isMaster }: Characte
           )
         `)
         .eq('campaign_id', campaign.id)
-        .in('status', ['approved', 'submitted']) // Apenas personagens aprovados ou enviados
+
+      // Se for mestre, mostra todos os personagens. Se for jogador, apenas aprovados/enviados
+      if (!isMaster) {
+        allCharsQuery = allCharsQuery.in('status', ['approved', 'submitted'])
+      }
+
+      const { data: allChars, error: allCharsError } = await allCharsQuery
         .order('created_at', { ascending: false })
 
       if (allCharsError) throw allCharsError
