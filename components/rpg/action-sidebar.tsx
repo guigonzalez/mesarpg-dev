@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils"
 import { Database } from '@/lib/database.types'
 import type { SheetTemplate } from '@/lib/database.types'
 import { CharacterListPanel } from './character-list-panel'
+import { ChatPanel } from './chat-panel'
 
 type Campaign = Database['public']['Tables']['campaigns']['Row']
 type User = Database['public']['Tables']['users']['Row']
@@ -169,11 +170,6 @@ const SimplePlayerTokenPanel = ({
   )
 }
 
-const SimpleChatPanel = () => (
-  <div className="p-4 text-center">
-    <p className="text-sm text-muted-foreground">Chat em desenvolvimento</p>
-  </div>
-)
 
 const SimpleHandoutPanel = () => (
   <div className="p-4 text-center">
@@ -239,7 +235,7 @@ export function ActionSidebar({
   }
 
   const views: { [key in PanelView]: { title: string; component: any } } = {
-    chat: { title: "Chat da Sessão", component: SimpleChatPanel },
+    chat: { title: "Chat da Sessão", component: () => <ChatPanel campaign={campaign} currentUser={user} isMaster={isMaster} /> },
     mark: { title: "Marcadores", component: () => <MarkToolPanel {...props} /> },
     draw: { title: "Desenho Livre", component: () => <DrawToolPanel {...props} /> },
     npcs: { title: "Criaturas", component: () => <SimpleNpcListPanel npcs={npcs} /> },
