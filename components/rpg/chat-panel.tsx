@@ -9,8 +9,9 @@ import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Send, Dice6, Eye, EyeOff, Volume2, VolumeX } from "lucide-react"
+import { Send, Eye, EyeOff, Volume2, VolumeX, HelpCircle, Dice6 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { processDiceCommand, isDiceCommand, getDiceCommandHelp } from "@/lib/dice-parser"
 
 type Campaign = Database['public']['Tables']['campaigns']['Row']
 type User = Database['public']['Tables']['users']['Row']
@@ -163,19 +164,49 @@ export function ChatPanel({ campaign, currentUser, isMaster }: ChatPanelProps) {
     try {
       setSending(true)
       
-      const messageData = {
-        campaign_id: campaign.id,
-        user_id: currentUser.id,
-        message: newMessage.trim(),
-        message_type: isWhisperMode ? 'whisper' : 'text',
-        metadata: {}
+      // Verificar se é um comando de dados
+      if (isDiceCommand(newMessage.trim())) {
+        const diceResult = processDiceCommand(newMessage.trim())
+        if (diceResult) {
+          const messageData = {
+            campaign_id: campaign.id,
+            user_id: currentUser.id,
+            message: diceResult.formattedResult,
+            message_type: 'roll',
+            metadata: {
+              originalCommand: diceResult.originalCommand,
+              rolls: diceResult.rolls,
+              modifier: diceResult.modifier,
+              total: diceResult.total
+            }
+          }
+
+          const { error } = await supabase
+            .from('chat_messages')
+            .insert(messageData)
+
+          if (error) throw error
+        } else {
+          // Comando inválido, mostrar ajuda
+          alert(getDiceCommandHelp())
+          return
+        }
+      } else {
+        // Mensagem normal
+        const messageData = {
+          campaign_id: campaign.id,
+          user_id: currentUser.id,
+          message: newMessage.trim(),
+          message_type: isWhisperMode ? 'whisper' : 'text',
+          metadata: {}
+        }
+
+        const { error } = await supabase
+          .from('chat_messages')
+          .insert(messageData)
+
+        if (error) throw error
       }
-
-      const { error } = await supabase
-        .from('chat_messages')
-        .insert(messageData)
-
-      if (error) throw error
 
       setNewMessage("")
       inputRef.current?.focus()
@@ -330,11 +361,16 @@ export function ChatPanel({ campaign, currentUser, isMaster }: ChatPanelProps) {
                   
                   <div className={cn("text-sm", getMessageTypeColor(message.message_type))}>
                     {message.message_type === 'roll' ? (
-                      <div className="flex items-center gap-2">
-                        <span>{message.message}</span>
-                        <Badge variant="outline" className="text-xs">
-                          {message.metadata?.result}
-                        </Badge>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span>{message.metadata?.originalCommand || message.message}</span>
+                        </div>
+                        <div className="text-xs bg-blue-50 dark:bg-blue-950 p-2 rounded border">
+                          <div className="font-mono">{message.message}</div>
+                          <Badge variant="outline" className="text-xs mt-1">
+                            Total: {message.metadata?.total || message.metadata?.result}
+                          </Badge>
+                        </div>
                       </div>
                     ) : message.message_type === 'whisper' ? (
                       <div className="italic">
@@ -369,19 +405,20 @@ export function ChatPanel({ campaign, currentUser, isMaster }: ChatPanelProps) {
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder={isWhisperMode ? "Sussurrar mensagem..." : "Digite sua mensagem..."}
+            placeholder={isWhisperMode ? "Sussurrar mensagem..." : "Digite sua mensagem ou /r 1d20+5..."}
             disabled={sending}
             className="flex-1"
           />
           
           <Button
             size="sm"
-            onClick={() => rollDice(20)}
+            onClick={() => alert(getDiceCommandHelp())}
             disabled={sending}
             variant="outline"
             className="px-2"
+            title="Ajuda com comandos de dados"
           >
-            <Dice6 className="h-4 w-4" />
+            <HelpCircle className="h-4 w-4" />
           </Button>
           
           <Button
