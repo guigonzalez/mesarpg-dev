@@ -96,6 +96,8 @@ export function ChatPanel({ campaign, currentUser, isMaster }: ChatPanelProps) {
   }
 
   const setupRealtimeSubscription = () => {
+    console.log('🔄 Configurando subscription realtime para campanha:', campaign.id)
+    
     const channel = supabase
       .channel(`chat_${campaign.id}`)
       .on(
@@ -107,37 +109,74 @@ export function ChatPanel({ campaign, currentUser, isMaster }: ChatPanelProps) {
           filter: `campaign_id=eq.${campaign.id}`
         },
         async (payload) => {
-          // Buscar dados completos da nova mensagem
-          const { data, error } = await supabase
-            .from('chat_messages')
-            .select(`
-              *,
-              user:users!chat_messages_user_id_fkey (
-                id,
-                name,
-                token_image
-              ),
-              target_user:users!chat_messages_target_user_id_fkey (
-                id,
-                name
-              )
-            `)
-            .eq('id', payload.new.id)
-            .single()
+          console.log('📨 Nova mensagem recebida via realtime:', payload)
+          
+          try {
+            // Buscar dados completos da nova mensagem
+            const { data, error } = await supabase
+              .from('chat_messages')
+              .select(`
+                *,
+                user:users!chat_messages_user_id_fkey (
+                  id,
+                  name,
+                  token_image
+                ),
+                target_user:users!chat_messages_target_user_id_fkey (
+                  id,
+                  name
+                )
+              `)
+              .eq('id', payload.new.id)
+              .single()
 
-          if (!error && data) {
-            setMessages(prev => [...prev, data])
-            
-            // Tocar som de notificação se não for mensagem própria
-            if (data.user_id !== currentUser.id && soundEnabled) {
-              playNotificationSound()
+            if (error) {
+              console.error('❌ Erro ao buscar dados da mensagem:', error)
+              return
             }
+
+            if (data) {
+              console.log('✅ Dados da mensagem carregados:', data.message)
+              
+              setMessages(prev => {
+                // Verificar se a mensagem já existe para evitar duplicatas
+                const exists = prev.some(msg => msg.id === data.id)
+                if (exists) {
+                  console.log('⚠️  Mensagem já existe, ignorando duplicata')
+                  return prev
+                }
+                
+                console.log('➕ Adicionando nova mensagem ao chat')
+                return [...prev, data]
+              })
+              
+              // Tocar som de notificação se não for mensagem própria
+              if (data.user_id !== currentUser.id && soundEnabled) {
+                console.log('🔊 Tocando som de notificação')
+                playNotificationSound()
+              }
+            }
+          } catch (err) {
+            console.error('❌ Erro ao processar mensagem realtime:', err)
           }
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        console.log('📡 Status da subscription:', status)
+        
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Realtime conectado com sucesso!')
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('❌ Erro na conexão realtime')
+        } else if (status === 'TIMED_OUT') {
+          console.error('⏰ Timeout na conexão realtime')
+        } else if (status === 'CLOSED') {
+          console.log('🔌 Conexão realtime fechada')
+        }
+      })
 
     return () => {
+      console.log('🔌 Removendo subscription realtime')
       supabase.removeChannel(channel)
     }
   }
