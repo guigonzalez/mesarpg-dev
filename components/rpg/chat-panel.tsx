@@ -53,10 +53,17 @@ export function ChatPanel({ campaign, currentUser, isMaster }: ChatPanelProps) {
   const [sending, setSending] = useState(false)
   const [isWhisperMode, setIsWhisperMode] = useState(false)
   const [soundEnabled, setSoundEnabled] = useState(true)
+  const [lastMessageId, setLastMessageId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchMessages()
-    setupRealtimeSubscription()
+    const cleanupRealtime = setupRealtimeSubscription()
+    const cleanupAutoRefresh = setupAutoRefresh()
+    
+    return () => {
+      cleanupRealtime()
+      cleanupAutoRefresh()
+    }
   }, [campaign.id])
 
   useEffect(() => {
@@ -92,6 +99,81 @@ export function ChatPanel({ campaign, currentUser, isMaster }: ChatPanelProps) {
       console.error('Erro ao carregar mensagens:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const setupAutoRefresh = () => {
+    console.log('🔄 Configurando auto-refresh para chat...')
+    
+    // Verificar novas mensagens a cada 3 segundos
+    const interval = setInterval(async () => {
+      try {
+        // Buscar apenas mensagens mais recentes que a última conhecida
+        let query = supabase
+          .from('chat_messages')
+          .select(`
+            *,
+            user:users!chat_messages_user_id_fkey (
+              id,
+              name,
+              token_image
+            ),
+            target_user:users!chat_messages_target_user_id_fkey (
+              id,
+              name
+            )
+          `)
+          .eq('campaign_id', campaign.id)
+          .order('created_at', { ascending: true })
+
+        // Se temos uma última mensagem, buscar apenas as mais recentes
+        if (lastMessageId) {
+          query = query.gt('created_at', 
+            messages.find(m => m.id === lastMessageId)?.created_at || new Date().toISOString()
+          )
+        }
+
+        const { data: newMessages, error } = await query.limit(10)
+
+        if (error) {
+          console.error('❌ Erro no auto-refresh:', error)
+          return
+        }
+
+        if (newMessages && newMessages.length > 0) {
+          console.log(`📨 ${newMessages.length} nova(s) mensagem(ns) encontrada(s) via auto-refresh`)
+          
+          setMessages(prev => {
+            const existingIds = new Set(prev.map(m => m.id))
+            const uniqueNewMessages = newMessages.filter(m => !existingIds.has(m.id))
+            
+            if (uniqueNewMessages.length > 0) {
+              console.log(`➕ Adicionando ${uniqueNewMessages.length} mensagem(ns) via auto-refresh`)
+              
+              // Tocar som para mensagens de outros usuários
+              const othersMessages = uniqueNewMessages.filter(m => m.user_id !== currentUser.id)
+              if (othersMessages.length > 0 && soundEnabled) {
+                console.log('🔊 Tocando som de notificação (auto-refresh)')
+                playNotificationSound()
+              }
+              
+              return [...prev, ...uniqueNewMessages]
+            }
+            
+            return prev
+          })
+          
+          // Atualizar ID da última mensagem
+          setLastMessageId(newMessages[newMessages.length - 1].id)
+        }
+      } catch (err) {
+        console.error('❌ Erro no auto-refresh:', err)
+      }
+    }, 3000) // Verificar a cada 3 segundos
+
+    return () => {
+      console.log('🔌 Removendo auto-refresh')
+      clearInterval(interval)
     }
   }
 
