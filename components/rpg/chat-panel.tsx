@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Send, Eye, EyeOff, Volume2, VolumeX, HelpCircle, Dice6 } from "lucide-react"
+import { Send, HelpCircle, Dice6, ChevronUp, MessageSquare } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { processDiceCommand, isDiceCommand, getDiceCommandHelp } from "@/lib/dice-parser"
 
@@ -21,18 +21,13 @@ interface ChatMessage {
   campaign_id: string
   user_id: string
   message: string
-  message_type: 'text' | 'roll' | 'system' | 'whisper'
-  target_user_id?: string
+  message_type: 'text' | 'roll' | 'system'
   metadata: any
   created_at: string
   user?: {
     id: string
     name: string
     token_image?: string
-  }
-  target_user?: {
-    id: string
-    name: string
   }
 }
 
@@ -51,9 +46,12 @@ export function ChatPanel({ campaign, currentUser, isMaster }: ChatPanelProps) {
   const [newMessage, setNewMessage] = useState("")
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
-  const [isWhisperMode, setIsWhisperMode] = useState(false)
-  const [soundEnabled, setSoundEnabled] = useState(true)
   const [lastMessageId, setLastMessageId] = useState<string | null>(null)
+  const [hasMoreMessages, setHasMoreMessages] = useState(false)
+  const [loadingOlder, setLoadingOlder] = useState(false)
+  const [offset, setOffset] = useState(0)
+
+  const MESSAGES_PER_PAGE = 20
 
   useEffect(() => {
     fetchMessages()
@@ -70,9 +68,15 @@ export function ChatPanel({ campaign, currentUser, isMaster }: ChatPanelProps) {
     scrollToBottom()
   }, [messages])
 
-  const fetchMessages = async () => {
+  const fetchMessages = async (loadOlder = false) => {
     try {
-      setLoading(true)
+      if (!loadOlder) {
+        setLoading(true)
+      } else {
+        setLoadingOlder(true)
+      }
+      
+      const currentOffset = loadOlder ? offset + MESSAGES_PER_PAGE : 0
       
       const { data, error } = await supabase
         .from('chat_messages')
@@ -82,24 +86,42 @@ export function ChatPanel({ campaign, currentUser, isMaster }: ChatPanelProps) {
             id,
             name,
             token_image
-          ),
-          target_user:users!chat_messages_target_user_id_fkey (
-            id,
-            name
           )
         `)
         .eq('campaign_id', campaign.id)
-        .order('created_at', { ascending: true })
-        .limit(100) // Últimas 100 mensagens
+        .order('created_at', { ascending: false })
+        .range(currentOffset, currentOffset + MESSAGES_PER_PAGE - 1)
 
       if (error) throw error
 
-      setMessages(data || [])
+      const reversedData = (data || []).reverse()
+      
+      if (loadOlder) {
+        setMessages(prev => [...reversedData, ...prev])
+        setOffset(currentOffset)
+      } else {
+        setMessages(reversedData)
+        setOffset(0)
+      }
+      
+      // Verificar se há mais mensagens
+      setHasMoreMessages((data || []).length === MESSAGES_PER_PAGE)
+      
+      // Definir última mensagem para auto-refresh
+      if (reversedData.length > 0 && !loadOlder) {
+        setLastMessageId(reversedData[reversedData.length - 1].id)
+      }
+      
     } catch (error) {
       console.error('Erro ao carregar mensagens:', error)
     } finally {
       setLoading(false)
+      setLoadingOlder(false)
     }
+  }
+
+  const loadOlderMessages = () => {
+    fetchMessages(true)
   }
 
   const setupAutoRefresh = () => {
@@ -108,8 +130,10 @@ export function ChatPanel({ campaign, currentUser, isMaster }: ChatPanelProps) {
     // Verificar novas mensagens a cada 3 segundos
     const interval = setInterval(async () => {
       try {
+        if (!lastMessageId) return
+        
         // Buscar apenas mensagens mais recentes que a última conhecida
-        let query = supabase
+        const { data: newMessages, error } = await supabase
           .from('chat_messages')
           .select(`
             *,
@@ -117,23 +141,14 @@ export function ChatPanel({ campaign, currentUser, isMaster }: ChatPanelProps) {
               id,
               name,
               token_image
-            ),
-            target_user:users!chat_messages_target_user_id_fkey (
-              id,
-              name
             )
           `)
           .eq('campaign_id', campaign.id)
-          .order('created_at', { ascending: true })
-
-        // Se temos uma última mensagem, buscar apenas as mais recentes
-        if (lastMessageId) {
-          query = query.gt('created_at', 
+          .gt('created_at', 
             messages.find(m => m.id === lastMessageId)?.created_at || new Date().toISOString()
           )
-        }
-
-        const { data: newMessages, error } = await query.limit(10)
+          .order('created_at', { ascending: true })
+          .limit(10)
 
         if (error) {
           console.error('❌ Erro no auto-refresh:', error)
@@ -152,7 +167,7 @@ export function ChatPanel({ campaign, currentUser, isMaster }: ChatPanelProps) {
               
               // Tocar som para mensagens de outros usuários
               const othersMessages = uniqueNewMessages.filter(m => m.user_id !== currentUser.id)
-              if (othersMessages.length > 0 && soundEnabled) {
+              if (othersMessages.length > 0) {
                 console.log('🔊 Tocando som de notificação (auto-refresh)')
                 playNotificationSound()
               }
@@ -203,10 +218,6 @@ export function ChatPanel({ campaign, currentUser, isMaster }: ChatPanelProps) {
                   id,
                   name,
                   token_image
-                ),
-                target_user:users!chat_messages_target_user_id_fkey (
-                  id,
-                  name
                 )
               `)
               .eq('id', payload.new.id)
@@ -233,10 +244,13 @@ export function ChatPanel({ campaign, currentUser, isMaster }: ChatPanelProps) {
               })
               
               // Tocar som de notificação se não for mensagem própria
-              if (data.user_id !== currentUser.id && soundEnabled) {
+              if (data.user_id !== currentUser.id) {
                 console.log('🔊 Tocando som de notificação')
                 playNotificationSound()
               }
+              
+              // Atualizar última mensagem
+              setLastMessageId(data.id)
             }
           } catch (err) {
             console.error('❌ Erro ao processar mensagem realtime:', err)
@@ -318,7 +332,7 @@ export function ChatPanel({ campaign, currentUser, isMaster }: ChatPanelProps) {
           campaign_id: campaign.id,
           user_id: currentUser.id,
           message: newMessage.trim(),
-          message_type: isWhisperMode ? 'whisper' : 'text',
+          message_type: 'text',
           metadata: {}
         }
 
@@ -334,37 +348,6 @@ export function ChatPanel({ campaign, currentUser, isMaster }: ChatPanelProps) {
       
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error)
-    } finally {
-      setSending(false)
-    }
-  }
-
-  const rollDice = async (sides: number = 20) => {
-    const result = Math.floor(Math.random() * sides) + 1
-    
-    try {
-      setSending(true)
-      
-      const messageData = {
-        campaign_id: campaign.id,
-        user_id: currentUser.id,
-        message: `Rolou 1d${sides}`,
-        message_type: 'roll',
-        metadata: {
-          dice: `1d${sides}`,
-          result: result,
-          sides: sides
-        }
-      }
-
-      const { error } = await supabase
-        .from('chat_messages')
-        .insert(messageData)
-
-      if (error) throw error
-      
-    } catch (error) {
-      console.error('Erro ao rolar dado:', error)
     } finally {
       setSending(false)
     }
@@ -388,10 +371,8 @@ export function ChatPanel({ campaign, currentUser, isMaster }: ChatPanelProps) {
     switch (type) {
       case 'roll':
         return <Dice6 className="h-3 w-3" />
-      case 'whisper':
-        return <Eye className="h-3 w-3" />
       case 'system':
-        return <Volume2 className="h-3 w-3" />
+        return <MessageSquare className="h-3 w-3" />
       default:
         return null
     }
@@ -401,8 +382,6 @@ export function ChatPanel({ campaign, currentUser, isMaster }: ChatPanelProps) {
     switch (type) {
       case 'roll':
         return 'text-blue-600 dark:text-blue-400'
-      case 'whisper':
-        return 'text-purple-600 dark:text-purple-400'
       case 'system':
         return 'text-orange-600 dark:text-orange-400'
       default:
@@ -421,48 +400,48 @@ export function ChatPanel({ campaign, currentUser, isMaster }: ChatPanelProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Header do Chat */}
-      <div className="flex items-center justify-between p-3 border-b">
+      <div className="flex items-center justify-between p-3 border-b shrink-0">
         <div className="flex items-center gap-2">
           <h3 className="font-medium text-sm">Chat da Sessão</h3>
           <Badge variant="secondary" className="text-xs">
             {messages.length}
           </Badge>
         </div>
-        <div className="flex items-center gap-1">
+      </div>
+
+      {/* Botão Carregar Mensagens Antigas */}
+      {hasMoreMessages && (
+        <div className="p-2 border-b">
           <Button
             size="sm"
-            variant={soundEnabled ? "default" : "outline"}
-            onClick={() => setSoundEnabled(!soundEnabled)}
-            className="h-7 w-7 p-0"
+            variant="outline"
+            onClick={loadOlderMessages}
+            disabled={loadingOlder}
+            className="w-full"
           >
-            {soundEnabled ? <Volume2 className="h-3 w-3" /> : <VolumeX className="h-3 w-3" />}
+            {loadingOlder ? (
+              <div className="animate-spin rounded-full h-3 w-3 border-b border-current mr-2" />
+            ) : (
+              <ChevronUp className="h-3 w-3 mr-2" />
+            )}
+            Carregar mensagens anteriores
           </Button>
-          {isMaster && (
-            <Button
-              size="sm"
-              variant={isWhisperMode ? "default" : "outline"}
-              onClick={() => setIsWhisperMode(!isWhisperMode)}
-              className="h-7 w-7 p-0"
-            >
-              {isWhisperMode ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-            </Button>
-          )}
         </div>
-      </div>
+      )}
 
       {/* Área de Mensagens */}
       <ScrollArea ref={scrollAreaRef} className="flex-1 p-3">
         <div className="space-y-3">
           {messages.length === 0 ? (
             <div className="text-center text-muted-foreground text-sm py-8">
-              <Volume2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
               <p>Nenhuma mensagem ainda</p>
               <p className="text-xs">Seja o primeiro a falar!</p>
             </div>
           ) : (
             messages.map((message) => (
               <div key={message.id} className="flex gap-2">
-                <Avatar className="h-6 w-6 mt-1">
+                <Avatar className="h-6 w-6 mt-1 shrink-0">
                   <AvatarImage src={message.user?.token_image} />
                   <AvatarFallback className="text-xs">
                     {message.user?.name?.charAt(0).toUpperCase()}
@@ -493,11 +472,6 @@ export function ChatPanel({ campaign, currentUser, isMaster }: ChatPanelProps) {
                           </Badge>
                         </div>
                       </div>
-                    ) : message.message_type === 'whisper' ? (
-                      <div className="italic">
-                        <span className="text-xs opacity-75">sussurra: </span>
-                        {message.message}
-                      </div>
                     ) : (
                       message.message
                     )}
@@ -511,22 +485,15 @@ export function ChatPanel({ campaign, currentUser, isMaster }: ChatPanelProps) {
 
       <Separator />
 
-      {/* Área de Input */}
-      <div className="p-3 space-y-2">
-        {isWhisperMode && (
-          <div className="text-xs text-purple-600 dark:text-purple-400 flex items-center gap-1">
-            <Eye className="h-3 w-3" />
-            Modo sussurro ativo
-          </div>
-        )}
-        
+      {/* Área de Input - Fixo na parte inferior */}
+      <div className="p-3 shrink-0">
         <div className="flex gap-2">
           <Input
             ref={inputRef}
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder={isWhisperMode ? "Sussurrar mensagem..." : "Digite sua mensagem ou /r 1d20+5..."}
+            placeholder="Digite sua mensagem ou /r 1d20+5..."
             disabled={sending}
             className="flex-1"
           />
@@ -536,7 +503,7 @@ export function ChatPanel({ campaign, currentUser, isMaster }: ChatPanelProps) {
             onClick={() => alert(getDiceCommandHelp())}
             disabled={sending}
             variant="outline"
-            className="px-2"
+            className="px-2 shrink-0"
             title="Ajuda com comandos de dados"
           >
             <HelpCircle className="h-4 w-4" />
@@ -546,6 +513,7 @@ export function ChatPanel({ campaign, currentUser, isMaster }: ChatPanelProps) {
             size="sm"
             onClick={sendMessage}
             disabled={sending || !newMessage.trim()}
+            className="shrink-0"
           >
             <Send className="h-4 w-4" />
           </Button>
